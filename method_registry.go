@@ -3,11 +3,11 @@ package contracts
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 
 	"github.com/bitxhub/bitxid"
+	"github.com/meshplus/bitxhub-core/boltvm"
 	"github.com/meshplus/bitxhub-kit/storage/leveldb"
-	"github.com/meshplus/bitxhub/internal/repo"
-	"github.com/meshplus/bitxhub/pkg/vm/boltvm"
 )
 
 const (
@@ -53,7 +53,7 @@ func (mr *MethodRegistry) Init(caller string) *boltvm.Response {
 		boltvm.Error("caller has no authorization")
 	}
 
-	ts, err := leveldb.New(repo.GetStoragePath(repoRoot, "MethodRegistry"))
+	ts, err := leveldb.New(filepath.Join(repoRoot, "storage", "MethodRegistry"))
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}

@@ -2,11 +2,11 @@ package contracts
 
 import (
 	"encoding/json"
+	"path/filepath"
 
 	"github.com/bitxhub/bitxid"
+	"github.com/meshplus/bitxhub-core/boltvm"
 	"github.com/meshplus/bitxhub-kit/storage/leveldb"
-	"github.com/meshplus/bitxhub/internal/repo"
-	"github.com/meshplus/bitxhub/pkg/vm/boltvm"
 )
 
 // DIDInfo .
@@ -40,7 +40,7 @@ func (dr *DIDRegistry) Init(caller string) *boltvm.Response {
 		boltvm.Error("caller has no authorization")
 	}
 
-	ts, err := leveldb.New(repo.GetStoragePath(repoRoot, "DIDRegistry"))
+	ts, err := leveldb.New(filepath.Join(repoRoot, "storage", "DIDRegistry"))
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
