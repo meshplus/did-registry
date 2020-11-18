@@ -5,11 +5,13 @@ import (
 	"path/filepath"
 
 	"github.com/bitxhub/bitxid"
+	"github.com/meshplus/bitxhub-core/agency"
 	"github.com/meshplus/bitxhub-core/boltvm"
 	"github.com/meshplus/bitxhub-kit/storage/leveldb"
+	"github.com/meshplus/bitxhub-model/constant"
 )
 
-// DIDInfo .
+// DIDInfo is used for return struct.
 type DIDInfo struct {
 	DID     string        // did name
 	DocAddr string        // address where the doc file stored
@@ -18,14 +20,24 @@ type DIDInfo struct {
 	Status  int           // status of did
 }
 
-// DIDRegistry .
+// DIDRegistry represents all things of did registry.
 type DIDRegistry struct {
 	boltvm.Stub
 	Registry   *bitxid.DIDRegistry
 	Initalized bool
 }
 
-// Init sets up the whole registry
+// NewDIDRegistry .
+func NewDIDRegistry() agency.Contract {
+	return &DIDRegistry{}
+}
+
+func init() {
+	agency.RegisterContractConstructor("method registry", constant.DIDRegistryContractAddr.Address(), NewDIDRegistry)
+}
+
+// Init sets up the whole registry,
+// caller should be admin.
 func (dr *DIDRegistry) Init(caller string) *boltvm.Response {
 	if dr.Initalized {
 		boltvm.Error("did registry already initalized")
@@ -65,7 +77,7 @@ func (dr *DIDRegistry) Init(caller string) *boltvm.Response {
 	return boltvm.Success(nil)
 }
 
-// Register infomation for a did in registry
+// Register anchors infomation for the did.
 func (dr *DIDRegistry) Register(caller string, didDoc *bitxid.DIDDoc, sig []byte) *boltvm.Response {
 	callerDID := bitxid.DID(caller)
 	if !callerDID.IsValidFormat() {
@@ -91,7 +103,7 @@ func (dr *DIDRegistry) Register(caller string, didDoc *bitxid.DIDDoc, sig []byte
 	return boltvm.Success(b)
 }
 
-// Update updates did infomation in registry
+// Update updates did infomation.
 func (dr *DIDRegistry) Update(caller string, didDoc *bitxid.DIDDoc, sig []byte) *boltvm.Response {
 	callerDID := bitxid.DID(caller)
 	if dr.Caller() != callerDID.GetAddress() {
@@ -113,7 +125,7 @@ func (dr *DIDRegistry) Update(caller string, didDoc *bitxid.DIDDoc, sig []byte) 
 	return boltvm.Success(b)
 }
 
-// Resolve gets all infomation of the did from registry
+// Resolve gets all infomation of the did.
 func (dr *DIDRegistry) Resolve(caller string, sig []byte) *boltvm.Response {
 	callerDID := bitxid.DID(caller)
 	if dr.Caller() != callerDID.GetAddress() {
@@ -137,7 +149,8 @@ func (dr *DIDRegistry) Resolve(caller string, sig []byte) *boltvm.Response {
 	return boltvm.Success(b)
 }
 
-// Freeze admin caller freezes the did in registry
+// Freeze freezes the did in this registry,
+// caller should be admin.
 func (dr *DIDRegistry) Freeze(caller string, sig []byte) *boltvm.Response {
 	callerDID := bitxid.DID(caller)
 	if dr.Caller() != callerDID.GetAddress() {
@@ -153,7 +166,8 @@ func (dr *DIDRegistry) Freeze(caller string, sig []byte) *boltvm.Response {
 	return boltvm.Success(nil)
 }
 
-// UnFreeze admin caller unfreezes the did in registry
+// UnFreeze unfreezes the did in the registry,
+// caller should be admin.
 func (dr *DIDRegistry) UnFreeze(caller string, sig []byte) *boltvm.Response {
 	callerDID := bitxid.DID(caller)
 	if dr.Caller() != callerDID.GetAddress() {
@@ -169,7 +183,8 @@ func (dr *DIDRegistry) UnFreeze(caller string, sig []byte) *boltvm.Response {
 	return boltvm.Success(nil)
 }
 
-// Delete deletes the did in registry
+// Delete deletes the did,
+// caller should be admin.
 func (dr *DIDRegistry) Delete(caller string, sig []byte) *boltvm.Response {
 	callerDID := bitxid.DID(caller)
 	if dr.Caller() != callerDID.GetAddress() {
@@ -185,7 +200,7 @@ func (dr *DIDRegistry) Delete(caller string, sig []byte) *boltvm.Response {
 	return boltvm.Success(nil)
 }
 
-// HasAdmin .
+// HasAdmin querys whether caller is an admin of the registry.
 func (dr *DIDRegistry) HasAdmin(caller string) *boltvm.Response {
 	res := dr.Registry.HasAdmin(bitxid.DID(caller))
 	if res == true {
@@ -194,7 +209,7 @@ func (dr *DIDRegistry) HasAdmin(caller string) *boltvm.Response {
 	return boltvm.Success([]byte("0"))
 }
 
-// GetAdmins get admins of the registry
+// GetAdmins get admins of the registry.
 func (dr *DIDRegistry) GetAdmins() *boltvm.Response {
 	admins := dr.Registry.GetAdmins()
 	data, err := json.Marshal(admins)
@@ -204,7 +219,8 @@ func (dr *DIDRegistry) GetAdmins() *boltvm.Response {
 	return boltvm.Success([]byte(data))
 }
 
-// AddAdmin add an admin of the registry
+// AddAdmin add caller to the admin of the registry,
+// caller should be admin.
 func (dr *DIDRegistry) AddAdmin(caller string, adminToAdd string) *boltvm.Response {
 	callerDID := bitxid.DID(caller)
 	if dr.Caller() != callerDID.GetAddress() {

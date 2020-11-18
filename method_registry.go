@@ -2,19 +2,20 @@ package contracts
 
 import (
 	"encoding/json"
-	"fmt"
 	"path/filepath"
 
 	"github.com/bitxhub/bitxid"
+	"github.com/meshplus/bitxhub-core/agency"
 	"github.com/meshplus/bitxhub-core/boltvm"
 	"github.com/meshplus/bitxhub-kit/storage/leveldb"
+	"github.com/meshplus/bitxhub-model/constant"
 )
 
 const (
 	repoRoot string = "./"
 )
 
-// MethodInfo .
+// MethodInfo is used for return struct.
 type MethodInfo struct {
 	Method  string           // method name
 	Owner   string           // owner of the method, is a did
@@ -24,20 +25,24 @@ type MethodInfo struct {
 	Status  int              // status of method
 }
 
-// MethodRegistry .
+// MethodRegistry represents all things of method registry.
 type MethodRegistry struct {
 	boltvm.Stub
 	Registry   *bitxid.MethodRegistry
 	Initalized bool
 }
 
-// Test .
-func (mr *MethodRegistry) Test(key string, value string) *boltvm.Response {
-	fmt.Println("key:", key, ", value:", value)
-	return boltvm.Success([]byte(key + value))
+// NewMethodRegistry .
+func NewMethodRegistry() agency.Contract {
+	return &MethodRegistry{}
 }
 
-// Init sets up the whole registry
+func init() {
+	agency.RegisterContractConstructor("method registry", constant.MethodRegistryContractAddr.Address(), NewMethodRegistry)
+}
+
+// Init sets up the whole registry,
+// caller should be admin.
 func (mr *MethodRegistry) Init(caller string) *boltvm.Response {
 
 	if mr.Initalized {
@@ -78,7 +83,7 @@ func (mr *MethodRegistry) Init(caller string) *boltvm.Response {
 	return boltvm.Success(nil)
 }
 
-// Apply caller applys for method name
+// Apply applys for a method name.
 func (mr *MethodRegistry) Apply(caller, method string, sig []byte) *boltvm.Response {
 	callerDID := bitxid.DID(caller)
 	if mr.Caller() != callerDID.GetAddress() {
@@ -96,7 +101,8 @@ func (mr *MethodRegistry) Apply(caller, method string, sig []byte) *boltvm.Respo
 	return boltvm.Success(nil)
 }
 
-// AuditApply admin caller audit apply-request by others
+// AuditApply audits apply-request by others,
+// caller should be admin.
 func (mr *MethodRegistry) AuditApply(caller, method string, result bool, sig []byte) *boltvm.Response {
 	callerDID := bitxid.DID(caller)
 	if mr.Caller() != callerDID.GetAddress() {
@@ -113,7 +119,8 @@ func (mr *MethodRegistry) AuditApply(caller, method string, result bool, sig []b
 	return boltvm.Success(nil)
 }
 
-// Audit audit infomation for a method in registry
+// Audit audits arbitrary status of the method,
+// caller should be admin.
 func (mr *MethodRegistry) Audit(caller, method string, status int, sig []byte) *boltvm.Response {
 	callerDID := bitxid.DID(caller)
 	if mr.Caller() != callerDID.GetAddress() {
@@ -129,7 +136,7 @@ func (mr *MethodRegistry) Audit(caller, method string, status int, sig []byte) *
 	return boltvm.Success(nil)
 }
 
-// Register infomation for a method in registry
+// Register anchors infomation for the method.
 func (mr *MethodRegistry) Register(caller, method string, doc []byte, sig []byte) *boltvm.Response {
 	callerDID := bitxid.DID(caller)
 	if mr.Caller() != callerDID.GetAddress() {
@@ -155,7 +162,7 @@ func (mr *MethodRegistry) Register(caller, method string, doc []byte, sig []byte
 	return boltvm.Success(b)
 }
 
-// Update updates method infomation in registry
+// Update updates method infomation.
 func (mr *MethodRegistry) Update(caller, method string, doc []byte, sig []byte) *boltvm.Response {
 	callerDID := bitxid.DID(caller)
 	if mr.Caller() != callerDID.GetAddress() {
@@ -180,7 +187,7 @@ func (mr *MethodRegistry) Update(caller, method string, doc []byte, sig []byte) 
 	return boltvm.Success(b)
 }
 
-// Resolve gets all infomation of the method from registry
+// Resolve gets all infomation for the method in this registry.
 func (mr *MethodRegistry) Resolve(caller, method string, sig []byte) *boltvm.Response {
 	callerDID := bitxid.DID(caller)
 	if mr.Caller() != callerDID.GetAddress() {
@@ -205,7 +212,8 @@ func (mr *MethodRegistry) Resolve(caller, method string, sig []byte) *boltvm.Res
 	return boltvm.Success(b)
 }
 
-// Freeze admin caller freezes the method in registry
+// Freeze freezes the method in the registry,
+// caller should be admin.
 func (mr *MethodRegistry) Freeze(caller, method string, sig []byte) *boltvm.Response {
 	callerDID := bitxid.DID(caller)
 	if mr.Caller() != callerDID.GetAddress() {
@@ -221,7 +229,8 @@ func (mr *MethodRegistry) Freeze(caller, method string, sig []byte) *boltvm.Resp
 	return boltvm.Success(nil)
 }
 
-// UnFreeze admin caller unfreezes the method in registry
+// UnFreeze unfreezes the method,
+// caller should be admin.
 func (mr *MethodRegistry) UnFreeze(caller, method string, sig []byte) *boltvm.Response {
 	callerDID := bitxid.DID(caller)
 	if mr.Caller() != callerDID.GetAddress() {
@@ -237,7 +246,8 @@ func (mr *MethodRegistry) UnFreeze(caller, method string, sig []byte) *boltvm.Re
 	return boltvm.Success(nil)
 }
 
-// Delete deletes the method in registry
+// Delete deletes the method,
+// caller should be admin.
 func (mr *MethodRegistry) Delete(caller, method string, sig []byte) *boltvm.Response {
 	callerDID := bitxid.DID(caller)
 	if mr.Caller() != callerDID.GetAddress() {
@@ -253,7 +263,7 @@ func (mr *MethodRegistry) Delete(caller, method string, sig []byte) *boltvm.Resp
 	return boltvm.Success(nil)
 }
 
-// HasAdmin .
+// HasAdmin querys whether caller is an admin of the registry.
 func (mr *MethodRegistry) HasAdmin(caller string) *boltvm.Response {
 	res := mr.Registry.HasAdmin(bitxid.DID(caller))
 	if res == true {
@@ -262,7 +272,7 @@ func (mr *MethodRegistry) HasAdmin(caller string) *boltvm.Response {
 	return boltvm.Success([]byte("0"))
 }
 
-// GetAdmins get admins of the registry
+// GetAdmins get admin list of the registry.
 func (mr *MethodRegistry) GetAdmins() *boltvm.Response {
 	admins := mr.Registry.GetAdmins()
 	data, err := json.Marshal(admins)
@@ -272,7 +282,8 @@ func (mr *MethodRegistry) GetAdmins() *boltvm.Response {
 	return boltvm.Success([]byte(data))
 }
 
-// AddAdmin add an admin of the registry
+// AddAdmin adds caller to the admin of the registry,
+// caller should be admin.
 func (mr *MethodRegistry) AddAdmin(caller string, adminToAdd string) *boltvm.Response {
 	callerDID := bitxid.DID(caller)
 	if mr.Caller() != callerDID.GetAddress() {
