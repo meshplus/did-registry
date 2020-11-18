@@ -145,7 +145,7 @@ func (mr *MethodRegistry) Register(caller, method string, doc []byte, sig []byte
 	methodDoc := bitxid.MethodDoc{}
 	methodDoc.Unmarshal(doc)
 	// sig .
-	docAddr, docHash, err := mr.Registry.Register(methodDoc)
+	docAddr, docHash, err := mr.Registry.Register(&methodDoc)
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
@@ -163,14 +163,12 @@ func (mr *MethodRegistry) Register(caller, method string, doc []byte, sig []byte
 }
 
 // Update updates method infomation.
-func (mr *MethodRegistry) Update(caller, method string, doc []byte, sig []byte) *boltvm.Response {
+func (mr *MethodRegistry) Update(caller, method string, doc *bitxid.MethodDoc, sig []byte) *boltvm.Response {
 	callerDID := bitxid.DID(caller)
 	if mr.Caller() != callerDID.GetAddress() {
 		return boltvm.Error(callerNotMatchError(mr.Caller(), caller))
 	}
-	methodDoc := bitxid.MethodDoc{}
-	methodDoc.Unmarshal(doc)
-	docAddr, docHash, err := mr.Registry.Update(methodDoc)
+	docAddr, docHash, err := mr.Registry.Update(doc)
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
@@ -202,7 +200,7 @@ func (mr *MethodRegistry) Resolve(caller, method string, sig []byte) *boltvm.Res
 		Owner:   caller,
 		DocAddr: item.DocAddr,
 		DocHash: item.DocHash,
-		Doc:     doc,
+		Doc:     *doc,
 		Status:  int(item.Status),
 	}
 	b, err := bitxid.Struct2Bytes(methodInfo)

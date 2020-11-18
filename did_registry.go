@@ -87,7 +87,7 @@ func (dr *DIDRegistry) Register(caller string, didDoc *bitxid.DIDDoc, sig []byte
 		return boltvm.Error(callerNotMatchError(dr.Caller(), caller))
 	}
 	// sig .
-	docAddr, docHash, err := dr.Registry.Register(*didDoc)
+	docAddr, docHash, err := dr.Registry.Register(didDoc)
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
@@ -109,7 +109,7 @@ func (dr *DIDRegistry) Update(caller string, didDoc *bitxid.DIDDoc, sig []byte) 
 	if dr.Caller() != callerDID.GetAddress() {
 		return boltvm.Error(callerNotMatchError(dr.Caller(), caller))
 	}
-	docAddr, docHash, err := dr.Registry.Update(*didDoc)
+	docAddr, docHash, err := dr.Registry.Update(didDoc)
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
@@ -139,7 +139,7 @@ func (dr *DIDRegistry) Resolve(caller string, sig []byte) *boltvm.Response {
 		DID:     caller,
 		DocAddr: item.DocAddr,
 		DocHash: item.DocHash,
-		Doc:     doc,
+		Doc:     *doc,
 		Status:  int(item.Status),
 	}
 	b, err := bitxid.Struct2Bytes(didInfo)
