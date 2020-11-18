@@ -1,4 +1,4 @@
-module did-method-registry
+module github.com/bitxhub/did-method-registry
 
 go 1.14
 
