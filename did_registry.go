@@ -29,8 +29,16 @@ type DIDRegistry struct {
 }
 
 // NewDIDRegistry .
-func NewDIDRegistry() agency.Contract {
-	return &DIDRegistry{}
+func NewDIDRegistry(r interface{}) agency.Contract {
+	dr := &DIDRegistry{
+		Registry:   r.(*bitxid.DIDRegistry),
+		Initalized: true,
+	}
+	err := dr.Registry.SetupGenesis()
+	if err != nil {
+		return nil
+	}
+	return dr
 }
 
 func init() {

@@ -31,8 +31,16 @@ type MethodRegistry struct {
 }
 
 // NewMethodRegistry .
-func NewMethodRegistry() agency.Contract {
-	return &MethodRegistry{}
+func NewMethodRegistry(r interface{}) agency.Contract {
+	mr := &MethodRegistry{
+		Registry:   r.(*bitxid.MethodRegistry),
+		Initalized: true,
+	}
+	err := mr.Registry.SetupGenesis()
+	if err != nil {
+		return nil
+	}
+	return mr
 }
 
 func init() {
