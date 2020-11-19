@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
 
 	"github.com/bitxhub/bitxid"
@@ -48,7 +49,12 @@ func (dr *DIDRegistry) Init(caller string) *boltvm.Response {
 		return boltvm.Error(callerNotMatchError(dr.Caller(), caller))
 	}
 
-	ts, err := leveldb.New(filepath.Join(repoRoot, "storage", "DIDRegistry"))
+	repoRoot, err := os.Getwd()
+	if err != nil {
+		return boltvm.Error(err.Error())
+	}
+
+	ts, err := leveldb.New(filepath.Join(repoRoot, "storage", "did-registry"))
 	if err != nil {
 		return boltvm.Error("new store: " + err.Error())
 	}

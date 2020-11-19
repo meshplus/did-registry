@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
 
 	"github.com/bitxhub/bitxid"
@@ -9,10 +10,7 @@ import (
 	"github.com/meshplus/bitxhub-core/boltvm"
 	"github.com/meshplus/bitxhub-kit/storage/leveldb"
 	"github.com/meshplus/bitxhub-model/constant"
-)
-
-const (
-	repoRoot string = "./"
+	"github.com/mitchellh/go-homedir"
 )
 
 // MethodInfo is used for return struct.
@@ -44,7 +42,7 @@ func init() {
 // Init sets up the whole registry,
 // caller should be admin.
 func (mr *MethodRegistry) Init(caller string) *boltvm.Response {
-
+	l := mr.Logger() // to be removed
 	if mr.Initalized {
 		boltvm.Error("method registry already initalized")
 	}
@@ -54,11 +52,18 @@ func (mr *MethodRegistry) Init(caller string) *boltvm.Response {
 		return boltvm.Error(callerNotMatchError(mr.Caller(), caller))
 	}
 
-	ts, err := leveldb.New(filepath.Join(repoRoot, "storage", "MethodRegistry"))
+	repoRoot, err := os.Getwd()
 	if err != nil {
-		return boltvm.Error("new store: " + err.Error())
+		return boltvm.Error(err.Error())
 	}
-	l := mr.Logger()                          // to be removed
+
+	path := filepath.Join(repoRoot, "storage", "method-registry")
+	ts, err := leveldb.New(path)
+	if err != nil {
+		l.Error(path, " new store: ", err.Error())
+		return boltvm.Error("new store: " + path + err.Error())
+	}
+
 	conf, err := bitxid.DefaultBitXIDConfig() // to be changed
 	if err != nil {
 		return boltvm.Error(err.Error())
@@ -296,4 +301,13 @@ func (mr *MethodRegistry) AddAdmin(caller string, adminToAdd string) *boltvm.Res
 
 func callerNotMatchError(c1 string, c2 string) string {
 	return "tx.From(" + c1 + ") and caller:(" + c2 + ") not the same"
+}
+
+func pathRoot() (string, error) {
+	dir := os.Getenv("BITXHUB_PATH")
+	var err error
+	if len(dir) == 0 {
+		dir, err = homedir.Expand("~/.bitxhub")
+	}
+	return dir, err
 }
