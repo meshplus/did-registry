@@ -58,13 +58,9 @@ func (dr *DIDRegistry) Init(caller string) *boltvm.Response {
 	if err != nil {
 		return boltvm.Error("new store: " + err.Error())
 	}
-	l := dr.Logger()                          // to be removed
-	conf, err := bitxid.DefaultBitXIDConfig() // to be changed
-	if err != nil {
-		return boltvm.Error(err.Error())
-	}
+	l := dr.Logger() // to be removed
 
-	r, err := bitxid.NewDIDRegistry(ts, ts, l, &conf.DIDConfig)
+	r, err := bitxid.NewDIDRegistry(ts, ts, l)
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}

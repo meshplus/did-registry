@@ -64,12 +64,7 @@ func (mr *MethodRegistry) Init(caller string) *boltvm.Response {
 		return boltvm.Error("new store: " + path + err.Error())
 	}
 
-	conf, err := bitxid.DefaultBitXIDConfig() // to be changed
-	if err != nil {
-		return boltvm.Error(err.Error())
-	}
-
-	r, err := bitxid.NewMethodRegistry(ts, ts, l, &conf.MethodConfig)
+	r, err := bitxid.NewMethodRegistry(ts, ts, l)
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
