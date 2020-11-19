@@ -2,13 +2,10 @@ package contracts
 
 import (
 	"encoding/json"
-	"os"
-	"path/filepath"
 
 	"github.com/bitxhub/bitxid"
 	"github.com/meshplus/bitxhub-core/agency"
 	"github.com/meshplus/bitxhub-core/boltvm"
-	"github.com/meshplus/bitxhub-kit/storage/leveldb"
 	"github.com/meshplus/bitxhub-model/constant"
 )
 
@@ -42,45 +39,13 @@ func NewDIDRegistry(r interface{}) agency.Contract {
 }
 
 func init() {
-	agency.RegisterContractConstructor("method registry", constant.DIDRegistryContractAddr.Address(), NewDIDRegistry)
+	agency.RegisterContractConstructor("did registry", constant.DIDRegistryContractAddr.Address(), NewDIDRegistry)
 }
 
 // Init sets up the whole registry,
 // caller should be admin.
 func (dr *DIDRegistry) Init(caller string) *boltvm.Response {
-	if dr.Initalized {
-		boltvm.Error("did registry already initalized")
-	}
-
-	callerDID := bitxid.DID(caller)
-	if dr.Caller() != callerDID.GetAddress() {
-		return boltvm.Error(callerNotMatchError(dr.Caller(), caller))
-	}
-
-	repoRoot, err := os.Getwd()
-	if err != nil {
-		return boltvm.Error(err.Error())
-	}
-
-	ts, err := leveldb.New(filepath.Join(repoRoot, "storage", "did-registry"))
-	if err != nil {
-		return boltvm.Error("new store: " + err.Error())
-	}
-	l := dr.Logger() // to be removed
-
-	r, err := bitxid.NewDIDRegistry(ts, ts, l)
-	if err != nil {
-		return boltvm.Error(err.Error())
-	}
-
-	err = r.SetupGenesis()
-	if err != nil {
-		return boltvm.Error(err.Error())
-	}
-
-	dr.Registry = r
-	dr.Initalized = true
-	return boltvm.Success(nil)
+	return boltvm.Success([]byte("Good."))
 }
 
 // Register anchors infomation for the did.

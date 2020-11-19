@@ -16,7 +16,7 @@ func NewMethodRegistryRegister(ts storage.Storage, ds storage.Storage, l logrus.
 }
 
 func NewDIDRegistryRegister(ts storage.Storage, ds storage.Storage, l logrus.FieldLogger) agency.Registry {
-	r, err := bitxid.NewMethodRegistry(ts, ds, l)
+	r, err := bitxid.NewDIDRegistry(ts, ds, l)
 	if err != nil {
 		return nil
 	}

@@ -3,12 +3,10 @@ package contracts
 import (
 	"encoding/json"
 	"os"
-	"path/filepath"
 
 	"github.com/bitxhub/bitxid"
 	"github.com/meshplus/bitxhub-core/agency"
 	"github.com/meshplus/bitxhub-core/boltvm"
-	"github.com/meshplus/bitxhub-kit/storage/leveldb"
 	"github.com/meshplus/bitxhub-model/constant"
 	"github.com/mitchellh/go-homedir"
 )
@@ -50,41 +48,7 @@ func init() {
 // Init sets up the whole registry,
 // caller should be admin.
 func (mr *MethodRegistry) Init(caller string) *boltvm.Response {
-	l := mr.Logger() // to be removed
-	if mr.Initalized {
-		boltvm.Error("method registry already initalized")
-	}
-
-	callerDID := bitxid.DID(caller)
-	if mr.Caller() != callerDID.GetAddress() {
-		return boltvm.Error(callerNotMatchError(mr.Caller(), caller))
-	}
-
-	repoRoot, err := os.Getwd()
-	if err != nil {
-		return boltvm.Error(err.Error())
-	}
-
-	path := filepath.Join(repoRoot, "storage", "method-registry")
-	ts, err := leveldb.New(path)
-	if err != nil {
-		l.Error(path, " new store: ", err.Error())
-		return boltvm.Error("new store: " + path + err.Error())
-	}
-
-	r, err := bitxid.NewMethodRegistry(ts, ts, l)
-	if err != nil {
-		return boltvm.Error(err.Error())
-	}
-
-	err = r.SetupGenesis()
-	if err != nil {
-		return boltvm.Error(err.Error())
-	}
-
-	mr.Registry = r
-	mr.Initalized = true
-	return boltvm.Success(nil)
+	return boltvm.Success([]byte("Good."))
 }
 
 // Apply applys for a method name.
