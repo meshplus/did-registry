@@ -48,13 +48,9 @@ func (dr *DIDRegistry) Init(caller string) *boltvm.Response {
 		return boltvm.Error(callerNotMatchError(dr.Caller(), caller))
 	}
 
-	if !dr.Registry.HasAdmin(callerDID) {
-		boltvm.Error("caller has no authorization")
-	}
-
 	ts, err := leveldb.New(filepath.Join(repoRoot, "storage", "DIDRegistry"))
 	if err != nil {
-		return boltvm.Error(err.Error())
+		return boltvm.Error("new store: " + err.Error())
 	}
 	l := dr.Logger()                          // to be removed
 	conf, err := bitxid.DefaultBitXIDConfig() // to be changed

@@ -54,13 +54,9 @@ func (mr *MethodRegistry) Init(caller string) *boltvm.Response {
 		return boltvm.Error(callerNotMatchError(mr.Caller(), caller))
 	}
 
-	if !mr.Registry.HasAdmin(callerDID) {
-		boltvm.Error("caller has no authorization")
-	}
-
 	ts, err := leveldb.New(filepath.Join(repoRoot, "storage", "MethodRegistry"))
 	if err != nil {
-		return boltvm.Error(err.Error())
+		return boltvm.Error("new store: " + err.Error())
 	}
 	l := mr.Logger()                          // to be removed
 	conf, err := bitxid.DefaultBitXIDConfig() // to be changed

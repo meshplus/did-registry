@@ -5,7 +5,7 @@ go 1.14
 require (
 	github.com/bitxhub/bitxid v0.1.1-0.20201118115715-6b304c3e41fa
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
-	github.com/golang/protobuf v1.4.2 // indirect
+	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/magiconair/properties v1.8.4 // indirect
 	github.com/meshplus/bitxhub-core v0.1.0-rc1.0.20201118083603-e65956cefda2
 	github.com/meshplus/bitxhub-kit v1.1.2-0.20201023030558-9f36554d5d5d
