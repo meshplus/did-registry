@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/bitxhub/bitxid"
+	"github.com/bitxhub/did-method-registry/converter"
 	"github.com/meshplus/bitxhub-core/agency"
 	"github.com/meshplus/bitxhub-core/boltvm"
 	"github.com/meshplus/bitxhub-model/constant"
@@ -30,15 +31,7 @@ type MethodRegistry struct {
 
 // NewMethodRegistry .
 func NewMethodRegistry(r interface{}) agency.Contract {
-	mr := &MethodRegistry{
-		Registry:   r.(*bitxid.MethodRegistry),
-		Initalized: true,
-	}
-	err := mr.Registry.SetupGenesis()
-	if err != nil {
-		return nil
-	}
-	return mr
+	return &MethodRegistry{}
 }
 
 func init() {
@@ -48,7 +41,16 @@ func init() {
 // Init sets up the whole registry,
 // caller should be admin.
 func (mr *MethodRegistry) Init(caller string) *boltvm.Response {
-	return boltvm.Success([]byte("Good."))
+	s := converter.StubToStorage(mr.Stub)
+	r, err := bitxid.NewMethodRegistry(s, s, mr.Logger())
+	if err != nil {
+		return boltvm.Error("init failed, " + err.Error())
+	}
+	mr = &MethodRegistry{
+		Registry:   r,
+		Initalized: true,
+	}
+	return boltvm.Success([]byte("init success"))
 }
 
 // Apply applys for a method name.
