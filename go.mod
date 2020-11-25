@@ -7,7 +7,7 @@ require (
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/magiconair/properties v1.8.4 // indirect
-	github.com/meshplus/bitxhub-core v0.1.0-rc1.0.20201119115312-979111085a2c
+	github.com/meshplus/bitxhub-core v0.1.0-rc1.0.20201125025329-ac1187099a88
 	github.com/meshplus/bitxhub-kit v1.1.2-0.20201023030558-9f36554d5d5d
 	github.com/meshplus/bitxhub-model v1.1.2-0.20201118055706-510eb971b4c6
 	github.com/mitchellh/go-homedir v1.1.0

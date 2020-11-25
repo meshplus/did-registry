@@ -26,7 +26,7 @@ type DIDRegistry struct {
 }
 
 // NewDIDRegistry .
-func NewDIDRegistry(r interface{}) agency.Contract {
+func NewDIDRegistry() agency.Contract {
 	return &DIDRegistry{}
 }
 

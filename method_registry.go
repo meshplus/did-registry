@@ -30,7 +30,7 @@ type MethodRegistry struct {
 }
 
 // NewMethodRegistry .
-func NewMethodRegistry(r interface{}) agency.Contract {
+func NewMethodRegistry() agency.Contract {
 	return &MethodRegistry{}
 }
 
