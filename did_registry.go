@@ -94,9 +94,12 @@ func (dr *DIDRegistry) Resolve(caller string, sig []byte) *boltvm.Response {
 	if dr.Caller() != callerDID.GetAddress() {
 		return boltvm.Error(callerNotMatchError(dr.Caller(), caller))
 	}
-	item, doc, err := dr.Registry.Resolve(callerDID)
+	item, doc, exist, err := dr.Registry.Resolve(callerDID)
 	if err != nil {
 		return boltvm.Error(err.Error())
+	}
+	if !exist {
+
 	}
 	didInfo := DIDInfo{
 		DID:     caller,
