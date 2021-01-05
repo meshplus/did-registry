@@ -22,6 +22,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.7.1 // indirect
 	github.com/stretchr/objx v0.2.0 // indirect
+	github.com/treasersimplifies/cstr v0.0.0-20201216143046-7ec53ac8c37b
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b // indirect
 	golang.org/x/sys v0.0.0-20201214210602-f9fddec55a1e // indirect
 	golang.org/x/text v0.3.4 // indirect
@@ -29,3 +30,7 @@ require (
 	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
+
+replace github.com/bitxhub/bitxid => ../bitxid
+
+replace github.com/meshplus/bitxhub-core => ../bitxhub-core
