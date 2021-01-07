@@ -201,7 +201,7 @@ func (mr *MethodRegistry) Audit(caller, method string, status string, sig []byte
 	}
 
 	if !mr.Registry.HasAdmin(callerDID) {
-		boltvm.Error("caller has no authorization")
+		return boltvm.Error("caller has no authorization")
 	}
 	err := mr.Registry.Audit(bitxid.DID(method), bitxid.StatusType(status))
 	if err != nil {
@@ -322,7 +322,7 @@ func (mr *MethodRegistry) Freeze(caller, method string, sig []byte) *boltvm.Resp
 		return boltvm.Error(callerNotMatchError(mr.Caller(), caller))
 	}
 	if !mr.Registry.HasAdmin(callerDID) { // require Admin
-		boltvm.Error("caller has no authorization.")
+		return boltvm.Error("caller has no authorization.")
 	}
 
 	err := mr.Registry.Freeze(bitxid.DID(method))
@@ -340,7 +340,7 @@ func (mr *MethodRegistry) UnFreeze(caller, method string, sig []byte) *boltvm.Re
 		return boltvm.Error(callerNotMatchError(mr.Caller(), caller))
 	}
 	if !mr.Registry.HasAdmin(callerDID) { // require Admin
-		boltvm.Error("caller has no authorization.")
+		return boltvm.Error("caller has no authorization.")
 	}
 
 	err := mr.Registry.UnFreeze(bitxid.DID(method))
@@ -358,7 +358,7 @@ func (mr *MethodRegistry) Delete(caller, method string, sig []byte) *boltvm.Resp
 		return boltvm.Error(callerNotMatchError(mr.Caller(), caller))
 	}
 	if !mr.Registry.HasAdmin(callerDID) { // require Admin
-		boltvm.Error("caller has no authorization.")
+		return boltvm.Error("caller has no authorization.")
 	}
 
 	err := mr.Registry.Delete(bitxid.DID(method))
@@ -469,7 +469,7 @@ func (mr *MethodRegistry) AddAdmin(caller string, adminToAdd string) *boltvm.Res
 		return boltvm.Error(callerNotMatchError(mr.Caller(), caller))
 	}
 	if !mr.Registry.HasAdmin(callerDID) { // require Admin
-		boltvm.Error("caller has no authorization.")
+		return boltvm.Error("caller has no authorization.")
 	}
 
 	err := mr.Registry.AddAdmin(bitxid.DID(adminToAdd))
