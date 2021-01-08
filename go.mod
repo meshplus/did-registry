@@ -3,7 +3,7 @@ module github.com/bitxhub/did-method-registry
 go 1.14
 
 require (
-	github.com/bitxhub/bitxid v0.1.1-0.20210107064210-25c1b4e6e1e9
+	github.com/bitxhub/bitxid v0.1.1-0.20210108090548-3e19fb37bda4
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/magiconair/properties v1.8.4 // indirect
