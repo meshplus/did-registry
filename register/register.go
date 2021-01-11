@@ -7,16 +7,16 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func NewMethodRegistryRegister(ts storage.Storage, ds storage.Storage, l logrus.FieldLogger) agency.Registry {
-	r, err := bitxid.NewMethodRegistry(ts, ds, l)
+func NewMethodRegistryRegister(ts storage.Storage, l logrus.FieldLogger) agency.Registry {
+	r, err := bitxid.NewMethodRegistry(ts, l)
 	if err != nil {
 		return nil
 	}
 	return r
 }
 
-func NewDIDRegistryRegister(ts storage.Storage, ds storage.Storage, l logrus.FieldLogger) agency.Registry {
-	r, err := bitxid.NewDIDRegistry(ts, ds, l)
+func NewDIDRegistryRegister(ts storage.Storage, l logrus.FieldLogger) agency.Registry {
+	r, err := bitxid.NewDIDRegistry(ts, l)
 	if err != nil {
 		return nil
 	}

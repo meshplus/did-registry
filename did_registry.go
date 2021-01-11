@@ -2,12 +2,28 @@ package contracts
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/bitxhub/bitxid"
+	"github.com/bitxhub/did-method-registry/converter"
 	"github.com/meshplus/bitxhub-core/agency"
 	"github.com/meshplus/bitxhub-core/boltvm"
 	"github.com/meshplus/bitxhub-model/constant"
+	"github.com/treasersimplifies/cstr"
 )
+
+const (
+	DIDRegistryKey = "DIDRegistry"
+)
+
+// NewDIDManager .
+func NewDIDManager() agency.Contract {
+	return &DIDManager{}
+}
+
+func init() {
+	agency.RegisterContractConstructor("did registry", constant.DIDRegistryContractAddr.Address(), NewDIDManager)
+}
 
 // DIDInfo is used for return struct.
 type DIDInfo struct {
@@ -15,98 +31,187 @@ type DIDInfo struct {
 	DocAddr string        // address where the doc file stored
 	DocHash []byte        // hash of the doc file
 	Doc     bitxid.DIDDoc // doc content
-	Status  int           // status of did
+	Status  string        // status of did
+}
+
+// DIDManager .
+type DIDManager struct {
+	boltvm.Stub
+}
+
+func (dm *DIDManager) getDIDRegistry() *DIDRegistry {
+	dr := &DIDRegistry{}
+	dm.GetObject(DIDRegistryKey, &dr)
+	if dr.Registry != nil {
+		dr.loadTable(dm.Stub)
+	}
+	return dr
 }
 
 // DIDRegistry represents all things of did registry.
+// @SelfID: self Method ID
+// @ChildIDs: Method IDs of the child chain
 type DIDRegistry struct {
-	boltvm.Stub
+	// boltvm.Stub
 	Registry   *bitxid.DIDRegistry
 	Initalized bool
+	SelfID     bitxid.DID
+	ParentID   bitxid.DID // not used
+	ChildIDs   []bitxid.DID
 }
 
-// NewDIDRegistry .
-func NewDIDRegistry() agency.Contract {
-	return &DIDRegistry{}
-}
-
-func init() {
-	agency.RegisterContractConstructor("did registry", constant.DIDRegistryContractAddr.Address(), NewDIDRegistry)
+// if you need to use registry table, you have to manully load it, so do docdb
+// returns err if registry is nil
+func (mr *DIDRegistry) loadTable(stub boltvm.Stub) error {
+	if mr.Registry == nil {
+		return fmt.Errorf("registry is nil")
+	}
+	mr.Registry.Table = &bitxid.KVTable{
+		Store: converter.StubToStorage(stub),
+	}
+	return nil
 }
 
 // Init sets up the whole registry,
 // caller should be admin.
-func (dr *DIDRegistry) Init(caller string) *boltvm.Response {
-	return boltvm.Success([]byte("Good."))
+func (dm *DIDManager) Init(caller string) *boltvm.Response {
+	dr := dm.getDIDRegistry()
+
+	callerDID := bitxid.DID(caller)
+	if dm.Caller() != callerDID.GetAddress() {
+		return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
+	}
+
+	if dr.Initalized {
+		return boltvm.Error("init err, already init")
+	}
+	s := converter.StubToStorage(dm.Stub)
+	r, err := bitxid.NewDIDRegistry(s, dm.Logger(), bitxid.WithDIDAdmin(bitxid.DID(caller)))
+	if err != nil {
+		return boltvm.Error("init err, " + err.Error())
+	}
+	dr.Registry = r
+	err = dr.Registry.SetupGenesis()
+	if err != nil {
+		return boltvm.Error("init genesis err, " + err.Error())
+	}
+	dr.SelfID = dr.Registry.GetSelfID()
+	dr.Initalized = true
+
+	dm.SetObject(DIDRegistryKey, dr)
+	dm.Logger().Info(cstr.Dye("DID Registry init success v1 !", "Green"))
+	return boltvm.Success(nil)
+}
+
+// GetMethodID gets method id of the registry.
+func (dm *DIDManager) GetMethodID() *boltvm.Response {
+	dr := dm.getDIDRegistry()
+
+	return boltvm.Success([]byte(dr.SelfID))
+}
+
+// SetMethodID sets method id of did registtry,
+// caller should be admin.
+func (dm *DIDManager) SetMethodID(caller, method string) *boltvm.Response {
+	dr := dm.getDIDRegistry()
+
+	if !dr.Initalized {
+		return boltvm.Error("Registry not initialized")
+	}
+
+	callerDID := bitxid.DID(caller)
+	if dm.Caller() != callerDID.GetAddress() {
+		return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
+	}
+	if !dr.Registry.HasAdmin(callerDID) {
+		return boltvm.Error("caller has no authorization.")
+	}
+	dr.SelfID = bitxid.DID(method)
+
+	dm.SetObject(DIDRegistryKey, dr)
+	return boltvm.Success(nil)
 }
 
 // Register anchors infomation for the did.
-func (dr *DIDRegistry) Register(caller string, didDoc *bitxid.DIDDoc, sig []byte) *boltvm.Response {
+func (dm *DIDManager) Register(caller string, docAddr string, docHash []byte, sig []byte) *boltvm.Response {
+	dr := dm.getDIDRegistry()
+
+	if !dr.Initalized {
+		return boltvm.Error("Registry not initialized")
+	}
+
 	callerDID := bitxid.DID(caller)
-	if !callerDID.IsValidFormat() {
-		return boltvm.Error("not valid did format")
+	if dm.Caller() != callerDID.GetAddress() {
+		return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
 	}
-	if dr.Caller() != callerDID.GetAddress() {
-		return boltvm.Error(callerNotMatchError(dr.Caller(), caller))
+	if dr.SelfID != bitxid.DID(callerDID.GetMethod()) {
+		return boltvm.Error(didNotOnThisChainError(string(callerDID), string(dr.SelfID)))
 	}
-	// sig .
-	docAddr, docHash, err := dr.Registry.Register(didDoc)
+
+	docAddr, docHash, err := dr.Registry.Register(bitxid.DocOption{
+		ID:   bitxid.DID(callerDID),
+		Addr: docAddr,
+		Hash: docHash,
+	})
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
-	didInfo := DIDInfo{
-		DID:     caller,
-		DocAddr: docAddr,
-		DocHash: docHash,
-	}
-	b, err := bitxid.Struct2Bytes(didInfo)
-	if err != nil {
-		return boltvm.Error(err.Error())
-	}
-	return boltvm.Success(b)
+
+	dm.SetObject(DIDRegistryKey, dr)
+	return boltvm.Success(nil)
 }
 
 // Update updates did infomation.
-func (dr *DIDRegistry) Update(caller string, didDoc *bitxid.DIDDoc, sig []byte) *boltvm.Response {
+func (dm *DIDManager) Update(caller string, docAddr string, docHash []byte, sig []byte) *boltvm.Response {
+	dr := dm.getDIDRegistry()
+
+	if !dr.Initalized {
+		return boltvm.Error("Registry not initialized")
+	}
+
 	callerDID := bitxid.DID(caller)
-	if dr.Caller() != callerDID.GetAddress() {
-		return boltvm.Error(callerNotMatchError(dr.Caller(), caller))
+	if dm.Caller() != callerDID.GetAddress() {
+		return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
 	}
-	docAddr, docHash, err := dr.Registry.Update(didDoc)
+	if dr.SelfID != bitxid.DID(callerDID.GetMethod()) {
+		return boltvm.Error(didNotOnThisChainError(string(callerDID), string(dr.SelfID)))
+	}
+
+	docAddr, docHash, err := dr.Registry.Update(bitxid.DocOption{
+		ID:   bitxid.DID(callerDID),
+		Addr: docAddr,
+		Hash: docHash,
+	})
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
-	didInfo := DIDInfo{
-		DID:     caller,
-		DocAddr: docAddr,
-		DocHash: docHash,
-	}
-	b, err := bitxid.Struct2Bytes(didInfo)
-	if err != nil {
-		return boltvm.Error(err.Error())
-	}
-	return boltvm.Success(b)
+
+	dm.SetObject(DIDRegistryKey, dr)
+	return boltvm.Success(nil)
 }
 
 // Resolve gets all infomation of the did.
-func (dr *DIDRegistry) Resolve(caller string, sig []byte) *boltvm.Response {
-	callerDID := bitxid.DID(caller)
-	if dr.Caller() != callerDID.GetAddress() {
-		return boltvm.Error(callerNotMatchError(dr.Caller(), caller))
+func (dm *DIDManager) Resolve(caller string) *boltvm.Response {
+	dr := dm.getDIDRegistry()
+
+	if !dr.Initalized {
+		return boltvm.Error("Registry not initialized")
 	}
-	item, doc, exist, err := dr.Registry.Resolve(callerDID)
+
+	callerDID := bitxid.DID(caller)
+
+	item, _, exist, err := dr.Registry.Resolve(callerDID)
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
 	if !exist {
-
+		return boltvm.Error("Not found")
 	}
 	didInfo := DIDInfo{
-		DID:     caller,
+		DID:     string(item.ID),
 		DocAddr: item.DocAddr,
 		DocHash: item.DocHash,
-		Doc:     *doc,
-		Status:  int(item.Status),
+		Status:  string(item.Status),
 	}
 	b, err := bitxid.Struct2Bytes(didInfo)
 	if err != nil {
@@ -117,58 +222,92 @@ func (dr *DIDRegistry) Resolve(caller string, sig []byte) *boltvm.Response {
 
 // Freeze freezes the did in this registry,
 // caller should be admin.
-func (dr *DIDRegistry) Freeze(caller string, sig []byte) *boltvm.Response {
+func (dm *DIDManager) Freeze(caller string, sig []byte) *boltvm.Response {
+	dr := dm.getDIDRegistry()
+
+	if !dr.Initalized {
+		return boltvm.Error("Registry not initialized")
+	}
+
 	callerDID := bitxid.DID(caller)
-	if dr.Caller() != callerDID.GetAddress() {
-		return boltvm.Error(callerNotMatchError(dr.Caller(), caller))
+	if dm.Caller() != callerDID.GetAddress() {
+		return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
 	}
 	if !dr.Registry.HasAdmin(callerDID) {
-		boltvm.Error("caller has no authorization.")
+		return boltvm.Error("caller has no authorization.")
 	}
+
 	err := dr.Registry.Freeze(callerDID)
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
+
+	dm.SetObject(DIDRegistryKey, dr)
 	return boltvm.Success(nil)
 }
 
 // UnFreeze unfreezes the did in the registry,
 // caller should be admin.
-func (dr *DIDRegistry) UnFreeze(caller string, sig []byte) *boltvm.Response {
+func (dm *DIDManager) UnFreeze(caller string, sig []byte) *boltvm.Response {
+	dr := dm.getDIDRegistry()
+
+	if !dr.Initalized {
+		return boltvm.Error("Registry not initialized")
+	}
+
 	callerDID := bitxid.DID(caller)
-	if dr.Caller() != callerDID.GetAddress() {
-		return boltvm.Error(callerNotMatchError(dr.Caller(), caller))
+	if dm.Caller() != callerDID.GetAddress() {
+		return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
 	}
 	if !dr.Registry.HasAdmin(callerDID) {
-		boltvm.Error("caller has no authorization.")
+		return boltvm.Error("caller has no authorization.")
 	}
+
 	err := dr.Registry.UnFreeze(callerDID)
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
+
+	dm.SetObject(DIDRegistryKey, dr)
 	return boltvm.Success(nil)
 }
 
 // Delete deletes the did,
 // caller should be admin.
-func (dr *DIDRegistry) Delete(caller string, sig []byte) *boltvm.Response {
+func (dm *DIDManager) Delete(caller string, sig []byte) *boltvm.Response {
+	dr := dm.getDIDRegistry()
+
+	if !dr.Initalized {
+		return boltvm.Error("Registry not initialized")
+	}
+
 	callerDID := bitxid.DID(caller)
-	if dr.Caller() != callerDID.GetAddress() {
-		return boltvm.Error(callerNotMatchError(dr.Caller(), caller))
+	if dm.Caller() != callerDID.GetAddress() {
+		return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
 	}
 	if !dr.Registry.HasAdmin(callerDID) {
-		boltvm.Error("caller has no authorization.")
+		return boltvm.Error("caller has no authorization.")
 	}
+
 	err := dr.Registry.Delete(callerDID)
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
+
+	dm.SetObject(DIDRegistryKey, dr)
 	return boltvm.Success(nil)
 }
 
 // HasAdmin querys whether caller is an admin of the registry.
-func (dr *DIDRegistry) HasAdmin(caller string) *boltvm.Response {
-	res := dr.Registry.HasAdmin(bitxid.DID(caller))
+func (dm *DIDManager) HasAdmin(caller string) *boltvm.Response {
+	dr := dm.getDIDRegistry()
+
+	callerDID := bitxid.DID(caller)
+	if dm.Caller() != callerDID.GetAddress() {
+		return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
+	}
+
+	res := dr.Registry.HasAdmin(callerDID)
 	if res == true {
 		return boltvm.Success([]byte("1"))
 	}
@@ -176,7 +315,9 @@ func (dr *DIDRegistry) HasAdmin(caller string) *boltvm.Response {
 }
 
 // GetAdmins get admins of the registry.
-func (dr *DIDRegistry) GetAdmins() *boltvm.Response {
+func (dm *DIDManager) GetAdmins() *boltvm.Response {
+	dr := dm.getDIDRegistry()
+
 	admins := dr.Registry.GetAdmins()
 	data, err := json.Marshal(admins)
 	if err != nil {
@@ -187,18 +328,30 @@ func (dr *DIDRegistry) GetAdmins() *boltvm.Response {
 
 // AddAdmin add caller to the admin of the registry,
 // caller should be admin.
-func (dr *DIDRegistry) AddAdmin(caller string, adminToAdd string) *boltvm.Response {
+func (dm *DIDManager) AddAdmin(caller string, adminToAdd string) *boltvm.Response {
+	dr := dm.getDIDRegistry()
+
 	callerDID := bitxid.DID(caller)
-	if dr.Caller() != callerDID.GetAddress() {
-		return boltvm.Error(callerNotMatchError(dr.Caller(), caller))
+	if dm.Caller() != callerDID.GetAddress() {
+		return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
 	}
 	if !dr.Registry.HasAdmin(callerDID) {
-		boltvm.Error("caller has no authorization.")
+		return boltvm.Error("caller has no authorization.")
 	}
 
 	err := dr.Registry.AddAdmin(bitxid.DID(adminToAdd))
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
+
+	dm.SetObject(DIDRegistryKey, dr)
 	return boltvm.Success(nil)
+}
+
+func docIDNotMatchDidError(c1 string, c2 string) string {
+	return "doc ID(" + c1 + ") not match the did(" + c2 + ")"
+}
+
+func didNotOnThisChainError(did string, method string) string {
+	return "DID(" + did + ") not on the chain(" + method + ")"
 }
