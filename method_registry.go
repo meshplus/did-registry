@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/bitxhub/bitxid"
 	"github.com/bitxhub/did-method-registry/converter"
@@ -42,6 +43,13 @@ func (mm *MethodManager) getMethodRegistry() *MethodRegistry {
 		mr.loadTable(mm.Stub)
 	}
 	return mr
+}
+
+// MethodInterRelaychain records inter-relaychain meta data
+// @OutCounter records inter-relaychian ibtp numbers of a destiny chain
+type MethodInterRelaychain struct {
+	OutCounter map[string]uint64
+	// OutMessage map[doubleKey]*pb.IBTP
 }
 
 // MethodRegistry represents all things of method registry.
@@ -170,9 +178,17 @@ func (mm *MethodManager) RemoveChild(caller, childID string) *boltvm.Response {
 	return boltvm.Success(nil)
 }
 
+func (mr *MethodRegistry) setConvertMap(method string, appID string) {
+	mr.IDConverter[bitxid.DID(method)] = appID
+}
+
+func (mr *MethodRegistry) getConvertMap(method string) string {
+	return mr.IDConverter[bitxid.DID(method)]
+}
+
 // SetConvertMap .
 // caller should be admin.
-func (mm *MethodManager) SetConvertMap(caller, did string, appID string) *boltvm.Response {
+func (mm *MethodManager) SetConvertMap(caller, method string, appID string) *boltvm.Response {
 	mr := mm.getMethodRegistry()
 
 	callerDID := bitxid.DID(caller)
@@ -183,23 +199,20 @@ func (mm *MethodManager) SetConvertMap(caller, did string, appID string) *boltvm
 		return boltvm.Error("caller" + string(callerDID) + " has no authorization")
 	}
 
-	mr.IDConverter[bitxid.DID(did)] = appID
+	mr.setConvertMap(method, appID)
 
 	mm.SetObject(MethodRegistryKey, mr)
 	return boltvm.Success(nil)
 }
 
 // GetConvertMap .
-func (mm *MethodManager) GetConvertMap(caller, did string) *boltvm.Response {
+func (mm *MethodManager) GetConvertMap(caller, method string) *boltvm.Response {
 	mr := mm.getMethodRegistry()
-
 	callerDID := bitxid.DID(caller)
 	if mm.Caller() != callerDID.GetAddress() {
 		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
 	}
-
-	mm.SetObject(MethodRegistryKey, mr)
-	return boltvm.Success([]byte(mr.IDConverter[bitxid.DID(did)]))
+	return boltvm.Success([]byte(mr.getConvertMap(method)))
 }
 
 // Apply applys for a method name.
@@ -301,6 +314,9 @@ func (mm *MethodManager) Register(caller, method string, docAddr string, docHash
 	}
 
 	item, _, _, err := mr.Registry.Resolve(bitxid.DID(method))
+	if err != nil {
+		return boltvm.Error(err.Error())
+	}
 	if item.Owner != callerDID {
 		return boltvm.Error(methodNotBelongError(method, caller))
 	}
@@ -314,10 +330,91 @@ func (mm *MethodManager) Register(caller, method string, docAddr string, docHash
 		return boltvm.Error("register err, " + err.Error())
 	}
 
+	item, _, _, err = mr.Registry.Resolve(bitxid.DID(method))
+	if err != nil {
+		return boltvm.Error(err.Error())
+	}
+
 	mm.SetObject(MethodRegistryKey, mr)
-	return boltvm.Success(nil)
+	data, err := bitxid.Struct2Bytes(item)
+
+	// ibtp without index
+	ibtps, err := mr.constructIBTPs(
+		string(constant.MethodRegistryContractAddr),
+		"Synchronize",
+		string(mr.SelfID),
+		func(toDIDs []bitxid.DID) []string {
+			var tos []string
+			for _, to := range toDIDs {
+				tos = append(tos, string(to))
+			}
+			return tos
+		}(mr.ChildIDs),
+		data,
+	)
+	if err != nil {
+		return boltvm.Error(err.Error())
+	}
+
+	ibtpsBytes, err := ibtps.Marshal()
+	if err != nil {
+		return boltvm.Error(err.Error())
+	}
+
+	return mm.CrossInvoke(constant.InterRelayBrokerContractAddr.String(), "RecordIBTPs", pb.Bytes(ibtpsBytes))
+
+	// return boltvm.Success(nil)
 	// TODO: construct chain multi sigs
 	// return mr.synchronizeOut(string(callerDID), item, [][]byte{[]byte(".")})
+}
+
+func (mr *MethodRegistry) constructIBTPs(contractID, function, fromMethod string, toMethods []string, data []byte) (*pb.IBTPs, error) {
+	content := pb.Content{
+		SrcContractId: contractID,
+		DstContractId: contractID,
+		Func:          function,
+		Args:          [][]byte{[]byte(fromMethod), []byte(data)},
+		Callback:      "",
+	}
+
+	bytes, err := content.Marshal()
+	if err != nil {
+		return nil, err
+	}
+
+	payload, err := json.Marshal(pb.Payload{
+		Encrypted: false,
+		Content:   bytes,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	from := mr.getConvertMap(fromMethod)
+
+	var ibtps []*pb.IBTP
+	for _, toMethod := range toMethods {
+		to := toMethod //
+		ibtps = append(ibtps, &pb.IBTP{
+			From:      from,
+			To:        to,
+			Type:      pb.IBTP_INTERCHAIN,
+			Timestamp: time.Now().UnixNano(),
+			Proof:     []byte("1"),
+			Payload:   payload,
+		})
+	}
+
+	return &pb.IBTPs{Ibtps: ibtps}, nil
+}
+
+// Event .
+type Event struct {
+	contractID string
+	function   string
+	fromMethod string
+	data       []byte
+	tos        []string
 }
 
 // Update updates method infomation.
@@ -492,9 +589,9 @@ func (mm *MethodManager) Delete(caller, method string, sig []byte) *boltvm.Respo
 }
 
 // Synchronize synchronizes registry data between different registrys,
-// only other registrys should call this.
-// @from: sourcechain id
-func (mm *MethodManager) Synchronize(from string, itemb []byte, sigsb []byte) *boltvm.Response {
+// use ibtp.proof to verify, it should only be called within interchain contract.
+// @from: sourcechain method id
+func (mm *MethodManager) Synchronize(from string, itemb []byte) *boltvm.Response {
 	mr := mm.getMethodRegistry()
 
 	if !mr.Initalized {
@@ -504,21 +601,23 @@ func (mm *MethodManager) Synchronize(from string, itemb []byte, sigsb []byte) *b
 	item := &bitxid.MethodItem{}
 	err := bitxid.Bytes2Struct(itemb, item)
 	if err != nil {
-		return boltvm.Error("synchronize err: " + err.Error())
-	}
-	sigs := [][]byte{}
-	err = bitxid.Bytes2Struct(sigsb, &sigs)
-	if err != nil {
-		return boltvm.Error("synchronize err: " + err.Error())
+		return boltvm.Error("Synchronize err: " + err.Error())
 	}
 	// TODO: verify multi sigs of from chain
+	// sigs := [][]byte{}
+	// err = bitxid.Bytes2Struct(sigsb, &sigs)
+	// if err != nil {
+	// 	return boltvm.Error("synchronize err: " + err.Error())
+	// }
+
 	err = mr.Registry.Synchronize(item)
 	if err != nil {
-		return boltvm.Error("synchronize err: " + err.Error())
+		return boltvm.Error("Synchronize err: " + err.Error())
 	}
 
 	mm.SetObject(MethodRegistryKey, mr)
-	return boltvm.Success(nil)
+	return mm.CrossInvoke(constant.InterRelayBrokerContractAddr.String(), "IncInCounter", pb.String(from))
+	// TODO add receipt proof if callback enabled
 }
 
 func (mm *MethodManager) synchronizeOut(from string, item *bitxid.MethodItem, sigs [][]byte) *boltvm.Response {
