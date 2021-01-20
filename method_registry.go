@@ -616,7 +616,7 @@ func (mm *MethodManager) Synchronize(from string, itemb []byte) *boltvm.Response
 	}
 
 	mm.SetObject(MethodRegistryKey, mr)
-	return mm.CrossInvoke(constant.InterRelayBrokerContractAddr.String(), "IncInCounter", pb.String(from))
+	return boltvm.Success(nil)
 	// TODO add receipt proof if callback enabled
 }
 
