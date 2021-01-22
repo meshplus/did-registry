@@ -526,7 +526,12 @@ func (mm *MethodManager) Freeze(caller, method string, sig []byte) *boltvm.Respo
 		return boltvm.Error("caller" + string(callerDID) + " has no permission")
 	}
 
-	err := mr.Registry.Freeze(bitxid.DID(method))
+	item, _, _, err := mr.Registry.Resolve(bitxid.DID(method))
+	if item.Status == bitxid.Frozen {
+		return boltvm.Error(method + " was already frozen")
+	}
+
+	err = mr.Registry.Freeze(bitxid.DID(method))
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
@@ -552,7 +557,12 @@ func (mm *MethodManager) UnFreeze(caller, method string, sig []byte) *boltvm.Res
 		return boltvm.Error("caller" + string(callerDID) + " has no permission")
 	}
 
-	err := mr.Registry.UnFreeze(bitxid.DID(method))
+	item, _, _, err := mr.Registry.Resolve(bitxid.DID(method))
+	if item.Status != bitxid.Frozen {
+		return boltvm.Error(method + " was not frozen")
+	}
+
+	err = mr.Registry.UnFreeze(bitxid.DID(method))
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}

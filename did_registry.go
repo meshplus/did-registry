@@ -237,7 +237,12 @@ func (dm *DIDManager) Freeze(caller string, sig []byte) *boltvm.Response {
 		return boltvm.Error("caller has no permission")
 	}
 
-	err := dr.Registry.Freeze(callerDID)
+	item, _, _, err := dr.Registry.Resolve(callerDID)
+	if item.Status == bitxid.Frozen {
+		return boltvm.Error(caller + " was already frozen")
+	}
+
+	err = dr.Registry.Freeze(callerDID)
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
@@ -263,7 +268,12 @@ func (dm *DIDManager) UnFreeze(caller string, sig []byte) *boltvm.Response {
 		return boltvm.Error("caller has no permission.")
 	}
 
-	err := dr.Registry.UnFreeze(callerDID)
+	item, _, _, err := dr.Registry.Resolve(callerDID)
+	if item.Status != bitxid.Frozen {
+		return boltvm.Error(caller + " was not frozen")
+	}
+
+	err = dr.Registry.UnFreeze(callerDID)
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
