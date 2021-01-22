@@ -127,7 +127,7 @@ func (mm *MethodManager) SetParent(caller, parentID string) *boltvm.Response {
 		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
 	}
 	if !mr.Registry.HasAdmin(callerDID) { // require Admin
-		return boltvm.Error("caller" + string(callerDID) + " has no permission")
+		return boltvm.Error("caller(" + string(callerDID) + ") has no permission")
 	}
 	mr.ParentID = bitxid.DID(parentID)
 
@@ -145,7 +145,7 @@ func (mm *MethodManager) AddChild(caller, childID string) *boltvm.Response {
 		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
 	}
 	if !mr.Registry.HasAdmin(callerDID) { // require Admin
-		return boltvm.Error("caller" + string(callerDID) + " has no permission")
+		return boltvm.Error("caller(" + string(callerDID) + ") has no permission")
 	}
 
 	mr.ChildIDs = append(mr.ChildIDs, bitxid.DID(childID))
@@ -164,7 +164,7 @@ func (mm *MethodManager) RemoveChild(caller, childID string) *boltvm.Response {
 		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
 	}
 	if !mr.Registry.HasAdmin(callerDID) { // require Admin
-		return boltvm.Error("caller" + string(callerDID) + " has no permission")
+		return boltvm.Error("caller(" + string(callerDID) + ") has no permission")
 	}
 
 	for i, child := range mr.ChildIDs {
@@ -195,7 +195,7 @@ func (mm *MethodManager) SetConvertMap(caller, method string, appID string) *bol
 		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
 	}
 	if !mr.Registry.HasAdmin(callerDID) { // require Admin
-		return boltvm.Error("caller" + string(callerDID) + " has no permission")
+		return boltvm.Error("caller(" + string(callerDID) + ") has no permission")
 	}
 
 	mr.setConvertMap(method, appID)
@@ -254,7 +254,7 @@ func (mm *MethodManager) AuditApply(caller, method string, result int32, sig []b
 		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
 	}
 	if !mr.Registry.HasAdmin(callerDID) { // require Admin
-		return boltvm.Error("caller" + string(callerDID) + " has no permission")
+		return boltvm.Error("caller(" + string(callerDID) + ") has no permission")
 	}
 
 	var res bool
@@ -288,7 +288,7 @@ func (mm *MethodManager) Audit(caller, method string, status string, sig []byte)
 	}
 
 	if !mr.Registry.HasAdmin(callerDID) {
-		return boltvm.Error("caller" + string(callerDID) + " has no permission")
+		return boltvm.Error("caller(" + string(callerDID) + ") has no permission")
 	}
 	err := mr.Registry.Audit(bitxid.DID(method), bitxid.StatusType(status))
 	if err != nil {
@@ -523,7 +523,7 @@ func (mm *MethodManager) Freeze(caller, method string, sig []byte) *boltvm.Respo
 		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
 	}
 	if !mr.Registry.HasAdmin(callerDID) { // require Admin
-		return boltvm.Error("caller" + string(callerDID) + " has no permission")
+		return boltvm.Error("caller(" + string(callerDID) + ") has no permission")
 	}
 
 	item, _, _, err := mr.Registry.Resolve(bitxid.DID(method))
@@ -554,7 +554,7 @@ func (mm *MethodManager) UnFreeze(caller, method string, sig []byte) *boltvm.Res
 		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
 	}
 	if !mr.Registry.HasAdmin(callerDID) { // require Admin
-		return boltvm.Error("caller" + string(callerDID) + " has no permission")
+		return boltvm.Error("caller(" + string(callerDID) + ") has no permission")
 	}
 
 	item, _, _, err := mr.Registry.Resolve(bitxid.DID(method))
@@ -572,7 +572,7 @@ func (mm *MethodManager) UnFreeze(caller, method string, sig []byte) *boltvm.Res
 }
 
 // Delete deletes the method,
-// caller should be admin.
+// caller should be did who owns the method.
 func (mm *MethodManager) Delete(caller, method string, sig []byte) *boltvm.Response {
 	mr := mm.getMethodRegistry()
 
@@ -584,11 +584,13 @@ func (mm *MethodManager) Delete(caller, method string, sig []byte) *boltvm.Respo
 	if mm.Caller() != callerDID.GetAddress() {
 		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
 	}
-	if !mr.Registry.HasAdmin(callerDID) { // require Admin
-		return boltvm.Error("caller" + string(callerDID) + " has no permission")
+
+	item, _, _, err := mr.Registry.Resolve(bitxid.DID(method))
+	if item.Owner != callerDID {
+		return boltvm.Error("caller(" + string(callerDID) + ") is not the owner of " + method)
 	}
 
-	err := mr.Registry.Delete(bitxid.DID(method))
+	err = mr.Registry.Delete(bitxid.DID(method))
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
@@ -721,7 +723,7 @@ func (mm *MethodManager) AddAdmin(caller string, adminToAdd string) *boltvm.Resp
 		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
 	}
 	if !mr.isSuperAdmin(callerDID) { // require Admin
-		return boltvm.Error("caller" + string(callerDID) + "doesn't have enough permission")
+		return boltvm.Error("caller(" + string(callerDID) + ") doesn't have enough permission")
 	}
 
 	err := mr.Registry.AddAdmin(bitxid.DID(adminToAdd))
@@ -743,7 +745,7 @@ func (mm *MethodManager) RemoveAdmin(caller string, adminToRm string) *boltvm.Re
 		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
 	}
 	if !mr.isSuperAdmin(callerDID) { // require super Admin
-		return boltvm.Error("caller" + string(callerDID) + "doesn't have enough permission")
+		return boltvm.Error("caller(" + string(callerDID) + ") doesn't have enough permission")
 	}
 
 	if mr.isSuperAdmin(bitxid.DID(adminToRm)) {

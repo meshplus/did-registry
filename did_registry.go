@@ -283,7 +283,7 @@ func (dm *DIDManager) UnFreeze(caller string, sig []byte) *boltvm.Response {
 }
 
 // Delete deletes the did,
-// caller should be admin.
+// caller should be self, admin can not be deleted.
 func (dm *DIDManager) Delete(caller string, sig []byte) *boltvm.Response {
 	dr := dm.getDIDRegistry()
 
@@ -295,8 +295,8 @@ func (dm *DIDManager) Delete(caller string, sig []byte) *boltvm.Response {
 	if dm.Caller() != callerDID.GetAddress() {
 		return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
 	}
-	if !dr.Registry.HasAdmin(callerDID) {
-		return boltvm.Error("caller has no permission")
+	if dr.Registry.HasAdmin(callerDID) {
+		return boltvm.Error("can not delet admin, rm admin first")
 	}
 
 	err := dr.Registry.Delete(callerDID)
