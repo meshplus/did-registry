@@ -62,11 +62,11 @@ type DIDRegistry struct {
 
 // if you need to use registry table, you have to manully load it, so do docdb
 // returns err if registry is nil
-func (mr *DIDRegistry) loadTable(stub boltvm.Stub) error {
-	if mr.Registry == nil {
+func (dr *DIDRegistry) loadTable(stub boltvm.Stub) error {
+	if dr.Registry == nil {
 		return fmt.Errorf("registry is nil")
 	}
-	mr.Registry.Table = &bitxid.KVTable{
+	dr.Registry.Table = &bitxid.KVTable{
 		Store: converter.StubToStorage(stub),
 	}
 	return nil
@@ -124,7 +124,7 @@ func (dm *DIDManager) SetMethodID(caller, method string) *boltvm.Response {
 		return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
 	}
 	if !dr.Registry.HasAdmin(callerDID) {
-		return boltvm.Error("caller has no authorization.")
+		return boltvm.Error("caller has no permission")
 	}
 	dr.SelfID = bitxid.DID(method)
 
@@ -234,7 +234,7 @@ func (dm *DIDManager) Freeze(caller string, sig []byte) *boltvm.Response {
 		return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
 	}
 	if !dr.Registry.HasAdmin(callerDID) {
-		return boltvm.Error("caller has no authorization.")
+		return boltvm.Error("caller has no permission")
 	}
 
 	err := dr.Registry.Freeze(callerDID)
@@ -260,7 +260,7 @@ func (dm *DIDManager) UnFreeze(caller string, sig []byte) *boltvm.Response {
 		return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
 	}
 	if !dr.Registry.HasAdmin(callerDID) {
-		return boltvm.Error("caller has no authorization.")
+		return boltvm.Error("caller has no permission.")
 	}
 
 	err := dr.Registry.UnFreeze(callerDID)
@@ -286,7 +286,7 @@ func (dm *DIDManager) Delete(caller string, sig []byte) *boltvm.Response {
 		return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
 	}
 	if !dr.Registry.HasAdmin(callerDID) {
-		return boltvm.Error("caller has no authorization.")
+		return boltvm.Error("caller has no permission")
 	}
 
 	err := dr.Registry.Delete(callerDID)
@@ -296,6 +296,12 @@ func (dm *DIDManager) Delete(caller string, sig []byte) *boltvm.Response {
 
 	dm.SetObject(DIDRegistryKey, dr)
 	return boltvm.Success(nil)
+}
+
+// isSuperAdmin querys whether caller is the super admin of the registry.
+func (dr *DIDRegistry) isSuperAdmin(caller bitxid.DID) bool {
+	admins := dr.Registry.GetAdmins()
+	return admins[0] == caller
 }
 
 // HasAdmin querys whether caller is an admin of the registry.
@@ -335,11 +341,36 @@ func (dm *DIDManager) AddAdmin(caller string, adminToAdd string) *boltvm.Respons
 	if dm.Caller() != callerDID.GetAddress() {
 		return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
 	}
-	if !dr.Registry.HasAdmin(callerDID) {
-		return boltvm.Error("caller has no authorization.")
+	if !dr.isSuperAdmin(callerDID) {
+		return boltvm.Error("caller" + string(callerDID) + "doesn't have enough permission")
 	}
 
 	err := dr.Registry.AddAdmin(bitxid.DID(adminToAdd))
+	if err != nil {
+		return boltvm.Error(err.Error())
+	}
+
+	dm.SetObject(DIDRegistryKey, dr)
+	return boltvm.Success(nil)
+}
+
+// RemoveAdmin remove admin of the registry,
+// caller should be super admin, super admin can not rm self.
+func (dm *DIDManager) RemoveAdmin(caller string, adminToRm string) *boltvm.Response {
+	dr := dm.getDIDRegistry()
+
+	callerDID := bitxid.DID(caller)
+	if dm.Caller() != callerDID.GetAddress() {
+		return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
+	}
+	if !dr.isSuperAdmin(callerDID) {
+		return boltvm.Error("caller" + string(callerDID) + "doesn't have enough permission")
+	}
+
+	if dr.isSuperAdmin(bitxid.DID(adminToRm)) {
+		return boltvm.Error("cannot rm super admin")
+	}
+	err := dr.Registry.RemoveAdmin(bitxid.DID(adminToRm))
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
