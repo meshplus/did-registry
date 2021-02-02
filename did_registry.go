@@ -222,7 +222,7 @@ func (dm *DIDManager) Resolve(caller string) *boltvm.Response {
 
 // Freeze freezes the did in this registry,
 // caller should be admin.
-func (dm *DIDManager) Freeze(caller string, sig []byte) *boltvm.Response {
+func (dm *DIDManager) Freeze(caller, callerToFreeze string, sig []byte) *boltvm.Response {
 	dr := dm.getDIDRegistry()
 
 	if !dr.Initalized {
@@ -230,6 +230,7 @@ func (dm *DIDManager) Freeze(caller string, sig []byte) *boltvm.Response {
 	}
 
 	callerDID := bitxid.DID(caller)
+	callerToFreezeDID := bitxid.DID(callerToFreeze)
 	if dm.Caller() != callerDID.GetAddress() {
 		return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
 	}
@@ -237,12 +238,12 @@ func (dm *DIDManager) Freeze(caller string, sig []byte) *boltvm.Response {
 		return boltvm.Error("caller has no permission")
 	}
 
-	item, _, _, err := dr.Registry.Resolve(callerDID)
+	item, _, _, err := dr.Registry.Resolve(callerToFreezeDID)
 	if item.Status == bitxid.Frozen {
-		return boltvm.Error(caller + " was already frozen")
+		return boltvm.Error(callerToFreeze + " was already frozen")
 	}
 
-	err = dr.Registry.Freeze(callerDID)
+	err = dr.Registry.Freeze(callerToFreezeDID)
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
@@ -253,7 +254,7 @@ func (dm *DIDManager) Freeze(caller string, sig []byte) *boltvm.Response {
 
 // UnFreeze unfreezes the did in the registry,
 // caller should be admin.
-func (dm *DIDManager) UnFreeze(caller string, sig []byte) *boltvm.Response {
+func (dm *DIDManager) UnFreeze(caller, callerToUnfreeze string, sig []byte) *boltvm.Response {
 	dr := dm.getDIDRegistry()
 
 	if !dr.Initalized {
@@ -261,6 +262,7 @@ func (dm *DIDManager) UnFreeze(caller string, sig []byte) *boltvm.Response {
 	}
 
 	callerDID := bitxid.DID(caller)
+	callerToUnfreezeDID := bitxid.DID(callerToUnfreeze)
 	if dm.Caller() != callerDID.GetAddress() {
 		return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
 	}
@@ -268,12 +270,12 @@ func (dm *DIDManager) UnFreeze(caller string, sig []byte) *boltvm.Response {
 		return boltvm.Error("caller has no permission.")
 	}
 
-	item, _, _, err := dr.Registry.Resolve(callerDID)
+	item, _, _, err := dr.Registry.Resolve(callerToUnfreezeDID)
 	if item.Status != bitxid.Frozen {
-		return boltvm.Error(caller + " was not frozen")
+		return boltvm.Error(callerToUnfreeze + " was not frozen")
 	}
 
-	err = dr.Registry.UnFreeze(callerDID)
+	err = dr.Registry.UnFreeze(callerToUnfreezeDID)
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
@@ -284,7 +286,7 @@ func (dm *DIDManager) UnFreeze(caller string, sig []byte) *boltvm.Response {
 
 // Delete deletes the did,
 // caller should be self, admin can not be deleted.
-func (dm *DIDManager) Delete(caller string, sig []byte) *boltvm.Response {
+func (dm *DIDManager) Delete(caller, callerToDelete string, sig []byte) *boltvm.Response {
 	dr := dm.getDIDRegistry()
 
 	if !dr.Initalized {
@@ -292,6 +294,7 @@ func (dm *DIDManager) Delete(caller string, sig []byte) *boltvm.Response {
 	}
 
 	callerDID := bitxid.DID(caller)
+	callerToDeleteDID := bitxid.DID(callerToDelete)
 	if dm.Caller() != callerDID.GetAddress() {
 		return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
 	}
@@ -299,7 +302,7 @@ func (dm *DIDManager) Delete(caller string, sig []byte) *boltvm.Response {
 		return boltvm.Error("can not delet admin, rm admin first")
 	}
 
-	err := dr.Registry.Delete(callerDID)
+	err := dr.Registry.Delete(callerToDeleteDID)
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
