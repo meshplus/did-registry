@@ -458,8 +458,16 @@ func (mm *MethodManager) Resolve(method string) *boltvm.Response {
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
-	if !exist {
-		return boltvm.Error("Not found")
+
+	methodInfo := MethodInfo{}
+	if exist {
+		methodInfo = MethodInfo{
+			Method:  string(item.ID),
+			Owner:   string(item.Owner),
+			DocAddr: item.DocAddr,
+			DocHash: item.DocHash,
+			Status:  string(item.Status),
+		}
 		// content := pb.Content{
 		// 	SrcContractId: mr.Callee(),
 		// 	DstContractId: mr.Callee(),
@@ -494,13 +502,7 @@ func (mm *MethodManager) Resolve(method string) *boltvm.Response {
 		// }
 		// return boltvm.Success([]byte("routing..."))
 	}
-	methodInfo := MethodInfo{
-		Method:  string(item.ID),
-		Owner:   string(item.Owner),
-		DocAddr: item.DocAddr,
-		DocHash: item.DocHash,
-		Status:  string(item.Status),
-	}
+
 	b, err := bitxid.Struct2Bytes(methodInfo)
 	if err != nil {
 		return boltvm.Error(err.Error())
@@ -747,10 +749,13 @@ func (mm *MethodManager) RemoveAdmin(caller string, adminToRm string) *boltvm.Re
 	if !mr.isSuperAdmin(callerDID) { // require super Admin
 		return boltvm.Error("caller(" + string(callerDID) + ") doesn't have enough permission")
 	}
-
+	if !mr.Registry.HasAdmin(bitxid.DID(adminToRm)) {
+		return boltvm.Error("caller (" + caller + ") is not admin")
+	}
 	if mr.isSuperAdmin(bitxid.DID(adminToRm)) {
 		return boltvm.Error("cannot rm super admin")
 	}
+
 	err := mr.Registry.RemoveAdmin(bitxid.DID(adminToRm))
 	if err != nil {
 		return boltvm.Error(err.Error())

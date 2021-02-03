@@ -204,14 +204,14 @@ func (dm *DIDManager) Resolve(caller string) *boltvm.Response {
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
-	if !exist {
-		return boltvm.Error("Not found")
-	}
-	didInfo := DIDInfo{
-		DID:     string(item.ID),
-		DocAddr: item.DocAddr,
-		DocHash: item.DocHash,
-		Status:  string(item.Status),
+	didInfo := DIDInfo{}
+	if exist {
+		didInfo = DIDInfo{
+			DID:     string(item.ID),
+			DocAddr: item.DocAddr,
+			DocHash: item.DocHash,
+			Status:  string(item.Status),
+		}
 	}
 	b, err := bitxid.Struct2Bytes(didInfo)
 	if err != nil {
@@ -298,8 +298,11 @@ func (dm *DIDManager) Delete(caller, callerToDelete string, sig []byte) *boltvm.
 	if dm.Caller() != callerDID.GetAddress() {
 		return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
 	}
-	if dr.Registry.HasAdmin(callerDID) {
-		return boltvm.Error("can not delet admin, rm admin first")
+	if !dr.Registry.HasAdmin(callerDID) {
+		return boltvm.Error("caller has no permission.")
+	}
+	if dr.Registry.HasAdmin(callerToDeleteDID) {
+		return boltvm.Error("can not delete admin, rm admin first")
 	}
 
 	err := dr.Registry.Delete(callerToDeleteDID)
