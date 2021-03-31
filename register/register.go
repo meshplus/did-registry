@@ -1,14 +1,15 @@
 package register
 
 import (
-	"github.com/bitxhub/bitxid"
 	"github.com/meshplus/bitxhub-core/agency"
 	"github.com/meshplus/bitxhub-kit/storage"
+	"github.com/meshplus/bitxid"
 	"github.com/sirupsen/logrus"
 )
 
 func NewMethodRegistryRegister(ts storage.Storage, l logrus.FieldLogger) agency.Registry {
-	r, err := bitxid.NewMethodRegistry(ts, l)
+	r, err := bitxid.NewChainDIDRegistry(ts, l)
+	// TODO WithAdmin
 	if err != nil {
 		return nil
 	}
@@ -16,7 +17,7 @@ func NewMethodRegistryRegister(ts storage.Storage, l logrus.FieldLogger) agency.
 }
 
 func NewDIDRegistryRegister(ts storage.Storage, l logrus.FieldLogger) agency.Registry {
-	r, err := bitxid.NewDIDRegistry(ts, l)
+	r, err := bitxid.NewAccountDIDRegistry(ts, l)
 	if err != nil {
 		return nil
 	}
@@ -24,6 +25,6 @@ func NewDIDRegistryRegister(ts storage.Storage, l logrus.FieldLogger) agency.Reg
 }
 
 func init() {
-	agency.RegisterRegistryConstructor("method", NewMethodRegistryRegister)
-	agency.RegisterRegistryConstructor("did", NewDIDRegistryRegister)
+	agency.RegisterRegistryConstructor("chain-did", NewMethodRegistryRegister)
+	agency.RegisterRegistryConstructor("account-did", NewDIDRegistryRegister)
 }

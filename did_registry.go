@@ -4,65 +4,65 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bitxhub/bitxid"
-	"github.com/bitxhub/did-method-registry/converter"
 	"github.com/meshplus/bitxhub-core/agency"
 	"github.com/meshplus/bitxhub-core/boltvm"
 	"github.com/meshplus/bitxhub-model/constant"
+	"github.com/meshplus/bitxid"
+	"github.com/meshplus/did-registry/converter"
 	"github.com/treasersimplifies/cstr"
 )
 
 const (
-	DIDRegistryKey = "DIDRegistry"
+	AccountDIDRegistryKey = "AccountDIDRegistry"
 )
 
-// NewDIDManager .
-func NewDIDManager() agency.Contract {
-	return &DIDManager{}
+// NewAccountDIDManager .
+func NewAccountDIDManager() agency.Contract {
+	return &AccountDIDManager{}
 }
 
 func init() {
-	agency.RegisterContractConstructor("did registry", constant.DIDRegistryContractAddr.Address(), NewDIDManager)
+	agency.RegisterContractConstructor("account did registry", constant.DIDRegistryContractAddr.Address(), NewAccountDIDManager)
 }
 
 // DIDInfo is used for return struct.
 type DIDInfo struct {
-	DID     string        // did name
-	DocAddr string        // address where the doc file stored
-	DocHash []byte        // hash of the doc file
-	Doc     bitxid.DIDDoc // doc content
-	Status  string        // status of did
+	DID     string            // did name
+	DocAddr string            // address where the doc file stored
+	DocHash []byte            // hash of the doc file
+	Doc     bitxid.AccountDoc // doc content
+	Status  string            // status of did
 }
 
-// DIDManager .
-type DIDManager struct {
+// AccountDIDManager .
+type AccountDIDManager struct {
 	boltvm.Stub
 }
 
-func (dm *DIDManager) getDIDRegistry() *DIDRegistry {
-	dr := &DIDRegistry{}
-	dm.GetObject(DIDRegistryKey, &dr)
+func (dm *AccountDIDManager) getAccountDIDRegistry() *AccountDIDRegistry {
+	dr := &AccountDIDRegistry{}
+	dm.GetObject(AccountDIDRegistryKey, &dr)
 	if dr.Registry != nil {
 		dr.loadTable(dm.Stub)
 	}
 	return dr
 }
 
-// DIDRegistry represents all things of did registry.
+// AccountDIDRegistry represents all things of did registry.
 // @SelfID: self Method ID
 // @ChildIDs: Method IDs of the child chain
-type DIDRegistry struct {
+type AccountDIDRegistry struct {
 	// boltvm.Stub
-	Registry   *bitxid.DIDRegistry
+	Registry   *bitxid.AccountDIDRegistry
 	Initalized bool
 	SelfID     bitxid.DID
 	ParentID   bitxid.DID // not used
 	ChildIDs   []bitxid.DID
 }
 
-// if you need to use registry table, you have to manully load it, so do docdb
+// if you need to use registry table, you have to manully load it, so does docdb,
 // returns err if registry is nil
-func (dr *DIDRegistry) loadTable(stub boltvm.Stub) error {
+func (dr *AccountDIDRegistry) loadTable(stub boltvm.Stub) error {
 	if dr.Registry == nil {
 		return fmt.Errorf("registry is nil")
 	}
@@ -74,8 +74,8 @@ func (dr *DIDRegistry) loadTable(stub boltvm.Stub) error {
 
 // Init sets up the whole registry,
 // caller should be admin.
-func (dm *DIDManager) Init(caller string) *boltvm.Response {
-	dr := dm.getDIDRegistry()
+func (dm *AccountDIDManager) Init(caller string) *boltvm.Response {
+	dr := dm.getAccountDIDRegistry()
 
 	callerDID := bitxid.DID(caller)
 	if dm.Caller() != callerDID.GetAddress() {
@@ -86,7 +86,14 @@ func (dm *DIDManager) Init(caller string) *boltvm.Response {
 		return boltvm.Error("init err, already init")
 	}
 	s := converter.StubToStorage(dm.Stub)
-	r, err := bitxid.NewDIDRegistry(s, dm.Logger(), bitxid.WithDIDAdmin(bitxid.DID(caller)))
+	r, err := bitxid.NewAccountDIDRegistry(
+		s,
+		dm.Logger(),
+		bitxid.WithDIDAdmin(callerDID),
+		bitxid.WithGenesisAccountDocInfo(
+			bitxid.DocInfo{ID: callerDID, Addr: ".", Hash: []byte{}},
+		),
+	)
 	if err != nil {
 		return boltvm.Error("init err, " + err.Error())
 	}
@@ -98,22 +105,22 @@ func (dm *DIDManager) Init(caller string) *boltvm.Response {
 	dr.SelfID = dr.Registry.GetSelfID()
 	dr.Initalized = true
 
-	dm.SetObject(DIDRegistryKey, dr)
+	dm.SetObject(AccountDIDRegistryKey, dr)
 	dm.Logger().Info(cstr.Dye("DID Registry init success v1 !", "Green"))
 	return boltvm.Success(nil)
 }
 
-// GetMethodID gets method id of the registry.
-func (dm *DIDManager) GetMethodID() *boltvm.Response {
-	dr := dm.getDIDRegistry()
+// GetChainDID gets chain did of blockchain which the registry belonging to.
+func (dm *AccountDIDManager) GetChainDID() *boltvm.Response {
+	dr := dm.getAccountDIDRegistry()
 
 	return boltvm.Success([]byte(dr.SelfID))
 }
 
-// SetMethodID sets method id of did registtry,
+// SetChainDID sets chain did of the registtry,
 // caller should be admin.
-func (dm *DIDManager) SetMethodID(caller, method string) *boltvm.Response {
-	dr := dm.getDIDRegistry()
+func (dm *AccountDIDManager) SetChainDID(caller, method string) *boltvm.Response {
+	dr := dm.getAccountDIDRegistry()
 
 	if !dr.Initalized {
 		return boltvm.Error("Registry not initialized")
@@ -128,13 +135,13 @@ func (dm *DIDManager) SetMethodID(caller, method string) *boltvm.Response {
 	}
 	dr.SelfID = bitxid.DID(method)
 
-	dm.SetObject(DIDRegistryKey, dr)
+	dm.SetObject(AccountDIDRegistryKey, dr)
 	return boltvm.Success(nil)
 }
 
-// Register anchors infomation for the did.
-func (dm *DIDManager) Register(caller string, docAddr string, docHash []byte, sig []byte) *boltvm.Response {
-	dr := dm.getDIDRegistry()
+// Register anchors infomation for an account did.
+func (dm *AccountDIDManager) Register(caller string, docAddr string, docHash []byte, sig []byte) *boltvm.Response {
+	dr := dm.getAccountDIDRegistry()
 
 	if !dr.Initalized {
 		return boltvm.Error("Registry not initialized")
@@ -144,26 +151,22 @@ func (dm *DIDManager) Register(caller string, docAddr string, docHash []byte, si
 	if dm.Caller() != callerDID.GetAddress() {
 		return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
 	}
-	if dr.SelfID != bitxid.DID(callerDID.GetMethod()) {
+	if dr.SelfID != callerDID.GetChainDID() {
 		return boltvm.Error(didNotOnThisChainError(string(callerDID), string(dr.SelfID)))
 	}
 
-	docAddr, docHash, err := dr.Registry.Register(bitxid.DocOption{
-		ID:   bitxid.DID(callerDID),
-		Addr: docAddr,
-		Hash: docHash,
-	})
+	docAddr, docHash, err := dr.Registry.Register(bitxid.DID(callerDID), docAddr, docHash)
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
 
-	dm.SetObject(DIDRegistryKey, dr)
+	dm.SetObject(AccountDIDRegistryKey, dr)
 	return boltvm.Success(nil)
 }
 
 // Update updates did infomation.
-func (dm *DIDManager) Update(caller string, docAddr string, docHash []byte, sig []byte) *boltvm.Response {
-	dr := dm.getDIDRegistry()
+func (dm *AccountDIDManager) Update(caller string, docAddr string, docHash []byte, sig []byte) *boltvm.Response {
+	dr := dm.getAccountDIDRegistry()
 
 	if !dr.Initalized {
 		return boltvm.Error("Registry not initialized")
@@ -173,26 +176,22 @@ func (dm *DIDManager) Update(caller string, docAddr string, docHash []byte, sig 
 	if dm.Caller() != callerDID.GetAddress() {
 		return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
 	}
-	if dr.SelfID != bitxid.DID(callerDID.GetMethod()) {
+	if dr.SelfID != callerDID.GetChainDID() {
 		return boltvm.Error(didNotOnThisChainError(string(callerDID), string(dr.SelfID)))
 	}
 
-	docAddr, docHash, err := dr.Registry.Update(bitxid.DocOption{
-		ID:   bitxid.DID(callerDID),
-		Addr: docAddr,
-		Hash: docHash,
-	})
+	docAddr, docHash, err := dr.Registry.Update(bitxid.DID(callerDID), docAddr, docHash)
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
 
-	dm.SetObject(DIDRegistryKey, dr)
+	dm.SetObject(AccountDIDRegistryKey, dr)
 	return boltvm.Success(nil)
 }
 
 // Resolve gets all infomation of the did.
-func (dm *DIDManager) Resolve(caller string) *boltvm.Response {
-	dr := dm.getDIDRegistry()
+func (dm *AccountDIDManager) Resolve(caller string) *boltvm.Response {
+	dr := dm.getAccountDIDRegistry()
 
 	if !dr.Initalized {
 		return boltvm.Error("Registry not initialized")
@@ -213,7 +212,7 @@ func (dm *DIDManager) Resolve(caller string) *boltvm.Response {
 			Status:  string(item.Status),
 		}
 	}
-	b, err := bitxid.Struct2Bytes(didInfo)
+	b, err := bitxid.Marshal(didInfo)
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
@@ -222,8 +221,8 @@ func (dm *DIDManager) Resolve(caller string) *boltvm.Response {
 
 // Freeze freezes the did in this registry,
 // caller should be admin.
-func (dm *DIDManager) Freeze(caller, callerToFreeze string, sig []byte) *boltvm.Response {
-	dr := dm.getDIDRegistry()
+func (dm *AccountDIDManager) Freeze(caller, callerToFreeze string, sig []byte) *boltvm.Response {
+	dr := dm.getAccountDIDRegistry()
 
 	if !dr.Initalized {
 		return boltvm.Error("Registry not initialized")
@@ -248,14 +247,14 @@ func (dm *DIDManager) Freeze(caller, callerToFreeze string, sig []byte) *boltvm.
 		return boltvm.Error(err.Error())
 	}
 
-	dm.SetObject(DIDRegistryKey, dr)
+	dm.SetObject(AccountDIDRegistryKey, dr)
 	return boltvm.Success(nil)
 }
 
 // UnFreeze unfreezes the did in the registry,
 // caller should be admin.
-func (dm *DIDManager) UnFreeze(caller, callerToUnfreeze string, sig []byte) *boltvm.Response {
-	dr := dm.getDIDRegistry()
+func (dm *AccountDIDManager) UnFreeze(caller, callerToUnfreeze string, sig []byte) *boltvm.Response {
+	dr := dm.getAccountDIDRegistry()
 
 	if !dr.Initalized {
 		return boltvm.Error("Registry not initialized")
@@ -280,14 +279,14 @@ func (dm *DIDManager) UnFreeze(caller, callerToUnfreeze string, sig []byte) *bol
 		return boltvm.Error(err.Error())
 	}
 
-	dm.SetObject(DIDRegistryKey, dr)
+	dm.SetObject(AccountDIDRegistryKey, dr)
 	return boltvm.Success(nil)
 }
 
 // Delete deletes the did,
 // caller should be self, admin can not be deleted.
-func (dm *DIDManager) Delete(caller, callerToDelete string, sig []byte) *boltvm.Response {
-	dr := dm.getDIDRegistry()
+func (dm *AccountDIDManager) Delete(caller, callerToDelete string, sig []byte) *boltvm.Response {
+	dr := dm.getAccountDIDRegistry()
 
 	if !dr.Initalized {
 		return boltvm.Error("Registry not initialized")
@@ -310,19 +309,19 @@ func (dm *DIDManager) Delete(caller, callerToDelete string, sig []byte) *boltvm.
 		return boltvm.Error(err.Error())
 	}
 
-	dm.SetObject(DIDRegistryKey, dr)
+	dm.SetObject(AccountDIDRegistryKey, dr)
 	return boltvm.Success(nil)
 }
 
 // isSuperAdmin querys whether caller is the super admin of the registry.
-func (dr *DIDRegistry) isSuperAdmin(caller bitxid.DID) bool {
+func (dr *AccountDIDRegistry) isSuperAdmin(caller bitxid.DID) bool {
 	admins := dr.Registry.GetAdmins()
 	return admins[0] == caller
 }
 
 // HasAdmin querys whether caller is an admin of the registry.
-func (dm *DIDManager) HasAdmin(caller string) *boltvm.Response {
-	dr := dm.getDIDRegistry()
+func (dm *AccountDIDManager) HasAdmin(caller string) *boltvm.Response {
+	dr := dm.getAccountDIDRegistry()
 
 	callerDID := bitxid.DID(caller)
 	if dm.Caller() != callerDID.GetAddress() {
@@ -337,8 +336,8 @@ func (dm *DIDManager) HasAdmin(caller string) *boltvm.Response {
 }
 
 // GetAdmins get admins of the registry.
-func (dm *DIDManager) GetAdmins() *boltvm.Response {
-	dr := dm.getDIDRegistry()
+func (dm *AccountDIDManager) GetAdmins() *boltvm.Response {
+	dr := dm.getAccountDIDRegistry()
 
 	admins := dr.Registry.GetAdmins()
 	data, err := json.Marshal(admins)
@@ -350,8 +349,8 @@ func (dm *DIDManager) GetAdmins() *boltvm.Response {
 
 // AddAdmin add caller to the admin of the registry,
 // caller should be admin.
-func (dm *DIDManager) AddAdmin(caller string, adminToAdd string) *boltvm.Response {
-	dr := dm.getDIDRegistry()
+func (dm *AccountDIDManager) AddAdmin(caller string, adminToAdd string) *boltvm.Response {
+	dr := dm.getAccountDIDRegistry()
 
 	callerDID := bitxid.DID(caller)
 	if dm.Caller() != callerDID.GetAddress() {
@@ -366,14 +365,14 @@ func (dm *DIDManager) AddAdmin(caller string, adminToAdd string) *boltvm.Respons
 		return boltvm.Error(err.Error())
 	}
 
-	dm.SetObject(DIDRegistryKey, dr)
+	dm.SetObject(AccountDIDRegistryKey, dr)
 	return boltvm.Success(nil)
 }
 
 // RemoveAdmin remove admin of the registry,
 // caller should be super admin, super admin can not rm self.
-func (dm *DIDManager) RemoveAdmin(caller string, adminToRm string) *boltvm.Response {
-	dr := dm.getDIDRegistry()
+func (dm *AccountDIDManager) RemoveAdmin(caller string, adminToRm string) *boltvm.Response {
+	dr := dm.getAccountDIDRegistry()
 
 	callerDID := bitxid.DID(caller)
 	if dm.Caller() != callerDID.GetAddress() {
@@ -391,7 +390,7 @@ func (dm *DIDManager) RemoveAdmin(caller string, adminToRm string) *boltvm.Respo
 		return boltvm.Error(err.Error())
 	}
 
-	dm.SetObject(DIDRegistryKey, dr)
+	dm.SetObject(AccountDIDRegistryKey, dr)
 	return boltvm.Success(nil)
 }
 
