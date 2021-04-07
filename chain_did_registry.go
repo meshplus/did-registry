@@ -23,12 +23,12 @@ const (
 // ChainDIDInfo represents information of a chain did.
 // TDDO: move to pb.
 type ChainDIDInfo struct {
-	Method  string          // chainDID name
-	Owner   string          // owner of the chainDID, is a did
-	DocAddr string          // address where the doc file stored
-	DocHash []byte          // hash of the doc file
-	Doc     bitxid.ChainDoc // doc content
-	Status  string          // status of chainDID
+	ChainDID string          // chainDID name
+	Owner    string          // owner of the chainDID, is a did
+	DocAddr  string          // address where the doc file stored
+	DocHash  []byte          // hash of the doc file
+	Doc      bitxid.ChainDoc // doc content
+	Status   string          // status of chainDID
 }
 
 // ChainDIDManager .
@@ -53,7 +53,7 @@ type ChainDIDInterRelaychain struct {
 }
 
 // ChainDIDRegistry represents all things of chain did registry.
-// @SelfID: self Method ID
+// @SelfID: self chainDID
 type ChainDIDRegistry struct {
 	Registry    *bitxid.ChainDIDRegistry
 	Initalized  bool
@@ -126,7 +126,7 @@ func (mm *ChainDIDManager) Init(caller string) *boltvm.Response {
 	mr.ParentID = "did:bitxhub:relayroot:." // default parent
 	mr.Initalized = true
 	mr.IDConverter = make(map[bitxid.DID]string)
-	mm.Logger().Info("Method Registry init success with admin: " + string(callerDID))
+	mm.Logger().Info("Chain DID Registry init success with admin: " + string(callerDID))
 
 	mm.SetObject(ChainDIDRegistryKey, mr)
 
@@ -231,7 +231,7 @@ func (mm *ChainDIDManager) GetConvertMap(caller, chainDID string) *boltvm.Respon
 }
 
 // Apply applys for a chainDID name.
-func (mm *ChainDIDManager) Apply(caller, chainDID string, sig []byte) *boltvm.Response {
+func (mm *ChainDIDManager) Apply(caller, chain string, sig []byte) *boltvm.Response {
 	mr := mm.getChainDIDRegistry()
 
 	if !mr.Initalized {
@@ -243,8 +243,8 @@ func (mm *ChainDIDManager) Apply(caller, chainDID string, sig []byte) *boltvm.Re
 		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
 	}
 
-	methodDID := bitxid.DID(chainDID)
-	if !methodDID.IsValidFormat() {
+	chainDID := bitxid.DID(chain)
+	if !chainDID.IsValidFormat() {
 		return boltvm.Error("not valid chainDID format")
 	}
 	err := mr.Registry.Apply(callerDID, bitxid.DID(chainDID)) // success
@@ -333,7 +333,7 @@ func (mm *ChainDIDManager) Register(caller, chainDID string, docAddr string, doc
 		return boltvm.Error(err.Error())
 	}
 	if item.Owner != callerDID {
-		return boltvm.Error(methodNotBelongError(chainDID, caller))
+		return boltvm.Error(chainDIDNotBelongError(chainDID, caller))
 	}
 	// TODO: verify sig
 	_, _, err = mr.Registry.Register(bitxid.DID(chainDID), docAddr, docHash)
@@ -379,12 +379,12 @@ func (mm *ChainDIDManager) Register(caller, chainDID string, docAddr string, doc
 	// return mr.synchronizeOut(string(callerDID), item, [][]byte{[]byte(".")})
 }
 
-func (mr *ChainDIDRegistry) constructIBTPs(contractID, function, fromMethod string, toMethods []string, data []byte) (*pb.IBTPs, error) {
+func (mr *ChainDIDRegistry) constructIBTPs(contractID, function, fromChainDID string, toChainDIDs []string, data []byte) (*pb.IBTPs, error) {
 	content := pb.Content{
 		SrcContractId: contractID,
 		DstContractId: contractID,
 		Func:          function,
-		Args:          [][]byte{[]byte(fromMethod), []byte(data)},
+		Args:          [][]byte{[]byte(fromChainDID), []byte(data)},
 		Callback:      "",
 	}
 
@@ -401,11 +401,11 @@ func (mr *ChainDIDRegistry) constructIBTPs(contractID, function, fromMethod stri
 		return nil, err
 	}
 
-	from := mr.getConvertMap(fromMethod)
+	from := mr.getConvertMap(fromChainDID)
 
 	var ibtps []*pb.IBTP
-	for _, toMethod := range toMethods {
-		to := toMethod //
+	for _, toChainDID := range toChainDIDs {
+		to := toChainDID //
 		ibtps = append(ibtps, &pb.IBTP{
 			From:      from,
 			To:        to,
@@ -421,11 +421,11 @@ func (mr *ChainDIDRegistry) constructIBTPs(contractID, function, fromMethod stri
 
 // Event .
 type Event struct {
-	contractID string
-	function   string
-	fromMethod string
-	data       []byte
-	tos        []string
+	contractID   string
+	function     string
+	fromChainDID string
+	data         []byte
+	tos          []string
 }
 
 // Update updates chainDID infomation.
@@ -443,7 +443,7 @@ func (mm *ChainDIDManager) Update(caller, chainDID string, docAddr string, docHa
 
 	item, _, _, err := mr.Registry.Resolve(bitxid.DID(chainDID))
 	if item.Owner != callerDID {
-		return boltvm.Error(methodNotBelongError(chainDID, caller))
+		return boltvm.Error(chainDIDNotBelongError(chainDID, caller))
 	}
 	_, _, err = mr.Registry.Update(bitxid.DID(chainDID), docAddr, docHash)
 	if err != nil {
@@ -467,14 +467,14 @@ func (mm *ChainDIDManager) Resolve(chainDID string) *boltvm.Response {
 		return boltvm.Error(err.Error())
 	}
 
-	methodInfo := ChainDIDInfo{}
+	chainDIDInfo := ChainDIDInfo{}
 	if exist {
-		methodInfo = ChainDIDInfo{
-			Method:  string(item.ID),
-			Owner:   string(item.Owner),
-			DocAddr: item.DocAddr,
-			DocHash: item.DocHash,
-			Status:  string(item.Status),
+		chainDIDInfo = ChainDIDInfo{
+			ChainDID: string(item.ID),
+			Owner:    string(item.Owner),
+			DocAddr:  item.DocAddr,
+			DocHash:  item.DocHash,
+			Status:   string(item.Status),
 		}
 		// Used for inter-relaychain :
 		//
@@ -513,7 +513,7 @@ func (mm *ChainDIDManager) Resolve(chainDID string) *boltvm.Response {
 		// return boltvm.Success([]byte("routing..."))
 	}
 
-	b, err := bitxid.Marshal(methodInfo)
+	b, err := bitxid.Marshal(chainDIDInfo)
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
@@ -779,11 +779,11 @@ func callerNotMatchError(c1 string, c2 string) string {
 	return "tx.From(" + c1 + ") and callerDID:(" + c2 + ") not the comply"
 }
 
-func methodNotBelongError(chainDID string, caller string) string {
+func chainDIDNotBelongError(chainDID string, caller string) string {
 	return "chainDID (" + chainDID + ") not belongs to caller(" + caller + ")"
 }
 
-func docIDNotMatchMethodError(c1 string, c2 string) string {
+func docIDNotMatchDIDError(c1 string, c2 string) string {
 	return "doc ID(" + c1 + ") not match the chainDID(" + c2 + ")"
 }
 

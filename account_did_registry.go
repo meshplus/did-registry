@@ -114,7 +114,7 @@ func (dm *AccountDIDManager) Init(caller string) *boltvm.Response {
 	dr.Initalized = true
 
 	dm.SetObject(AccountDIDRegistryKey, dr)
-	dm.Logger().Info("DID Registry init success with admin: " + string(callerDID))
+	dm.Logger().Info("Account DID Registry init success with admin: " + string(callerDID))
 	return boltvm.Success(nil)
 }
 
