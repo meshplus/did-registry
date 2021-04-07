@@ -17,6 +17,7 @@ import (
 
 const (
 	ChainDIDRegistryKey = "ChainDIDRegistry"
+	adminMethodKey      = "admin-method"
 )
 
 // ChainDIDInfo represents information of a chain did.
@@ -88,7 +89,15 @@ func init() {
 func (mm *ChainDIDManager) Init(caller string) *boltvm.Response {
 	mr := mm.getChainDIDRegistry()
 
+	var admin string
+	mm.GetObject(adminMethodKey, &admin)
+	mm.Logger().Info("admin get: " + string(admin))
+
 	callerDID := bitxid.DID(caller)
+	if mm.Caller() != admin {
+		return boltvm.Error("caller (" + mm.Caller() + ") is not admin(" + admin + ")")
+	}
+
 	if mm.Caller() != callerDID.GetAddress() {
 		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
 	}

@@ -9,11 +9,11 @@ import (
 	"github.com/meshplus/bitxhub-model/constant"
 	"github.com/meshplus/bitxid"
 	"github.com/meshplus/did-registry/converter"
-	"github.com/treasersimplifies/cstr"
 )
 
 const (
 	AccountDIDRegistryKey = "AccountDIDRegistry"
+	adminDIDKey           = "admin-did"
 )
 
 // NewAccountDIDManager .
@@ -77,7 +77,15 @@ func (dr *AccountDIDRegistry) loadTable(stub boltvm.Stub) error {
 func (dm *AccountDIDManager) Init(caller string) *boltvm.Response {
 	dr := dm.getAccountDIDRegistry()
 
+	var admin string
+	dm.GetObject(adminDIDKey, &admin)
+	dm.Logger().Info("admin get: " + string(admin))
+
 	callerDID := bitxid.DID(caller)
+	if dm.Caller() != admin {
+		return boltvm.Error("caller (" + dm.Caller() + ") is not admin(" + admin + ")")
+	}
+
 	if dm.Caller() != callerDID.GetAddress() {
 		return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
 	}
@@ -106,7 +114,7 @@ func (dm *AccountDIDManager) Init(caller string) *boltvm.Response {
 	dr.Initalized = true
 
 	dm.SetObject(AccountDIDRegistryKey, dr)
-	dm.Logger().Info(cstr.Dye("DID Registry init success v1 !", "Green"))
+	dm.Logger().Info("DID Registry init success with admin: " + string(callerDID))
 	return boltvm.Success(nil)
 }
 
@@ -119,7 +127,7 @@ func (dm *AccountDIDManager) GetChainDID() *boltvm.Response {
 
 // SetChainDID sets chain did of the registtry,
 // caller should be admin.
-func (dm *AccountDIDManager) SetChainDID(caller, method string) *boltvm.Response {
+func (dm *AccountDIDManager) SetChainDID(caller, chainDID string) *boltvm.Response {
 	dr := dm.getAccountDIDRegistry()
 
 	if !dr.Initalized {
@@ -133,7 +141,7 @@ func (dm *AccountDIDManager) SetChainDID(caller, method string) *boltvm.Response
 	if !dr.Registry.HasAdmin(callerDID) {
 		return boltvm.Error("caller has no permission")
 	}
-	dr.SelfID = bitxid.DID(method)
+	dr.SelfID = bitxid.DID(chainDID)
 
 	dm.SetObject(AccountDIDRegistryKey, dr)
 	return boltvm.Success(nil)
@@ -398,6 +406,6 @@ func docIDNotMatchDidError(c1 string, c2 string) string {
 	return "doc ID(" + c1 + ") not match the did(" + c2 + ")"
 }
 
-func didNotOnThisChainError(did string, method string) string {
-	return "DID(" + did + ") not on the chain(" + method + ")"
+func didNotOnThisChainError(did string, chainDID string) string {
+	return "DID(" + did + ") not on the chain(" + chainDID + ")"
 }
