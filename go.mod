@@ -13,14 +13,14 @@ require (
 	github.com/magiconair/properties v1.8.4 // indirect
 	github.com/meshplus/bitxhub-core v0.1.0-rc1.0.20210318102029-494ee3060b0c
 	github.com/meshplus/bitxhub-kit v1.1.2-0.20210112075018-319e668d6359
-	github.com/meshplus/bitxhub-model v1.1.2-0.20210309053945-afaea82e9fe1
-	github.com/meshplus/bitxid v0.0.0-20210331062815-ef07c54e5ab0
+	github.com/meshplus/bitxhub-model v1.1.2-0.20210409090411-de23bd385c5f
+	github.com/meshplus/bitxid v0.0.0-20210412025850-e0eaf0f9063a
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
 	github.com/onsi/ginkgo v1.12.0 // indirect
 	github.com/onsi/gomega v1.9.0 // indirect
 	github.com/pelletier/go-toml v1.8.1 // indirect
-	github.com/sirupsen/logrus v1.7.0
+	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/afero v1.5.1 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
@@ -31,7 +31,7 @@ require (
 	go.uber.org/zap v1.16.0 // indirect
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad // indirect
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b // indirect
-	golang.org/x/sys v0.0.0-20210119212857-b64e53b001e4 // indirect
+	golang.org/x/sys v0.0.0-20210403161142-5e06dd20ab57 // indirect
 	golang.org/x/text v0.3.5 // indirect
 	google.golang.org/genproto v0.0.0-20201119123407-9b1e624d6bc4 // indirect
 	google.golang.org/grpc v1.33.2 // indirect

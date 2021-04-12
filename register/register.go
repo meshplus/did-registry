@@ -24,7 +24,16 @@ func NewDIDRegistryRegister(ts storage.Storage, l logrus.FieldLogger) agency.Reg
 	return r
 }
 
+// func NewVCRegistryRegister(ts storage.Storage) agency.Registry {
+// 	r, err := bitxid.NewAccountDIDRegistry(ts, l)
+// 	if err != nil {
+// 		return nil
+// 	}
+// 	return r
+// }
+
 func init() {
 	agency.RegisterRegistryConstructor("chain-did", NewMethodRegistryRegister)
 	agency.RegisterRegistryConstructor("account-did", NewDIDRegistryRegister)
+	// agency.RegisterRegistryConstructor("vc", NewDIDRegistryRegister)
 }
