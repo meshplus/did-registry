@@ -332,8 +332,9 @@ func (mm *ChainDIDManager) Register(caller, chainDID string, docAddr string, doc
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
-	if item.Owner != callerDID {
-		return boltvm.Error(chainDIDNotBelongError(chainDID, caller))
+
+	if !mr.Registry.HasAdmin(callerDID) && item.Owner != callerDID {
+		return boltvm.Error(notAdminOrOwnerError(chainDID, caller))
 	}
 	// TODO: verify sig
 	_, _, err = mr.Registry.Register(bitxid.DID(chainDID), docAddr, docHash)
@@ -442,8 +443,8 @@ func (mm *ChainDIDManager) Update(caller, chainDID string, docAddr string, docHa
 	}
 
 	item, _, _, err := mr.Registry.Resolve(bitxid.DID(chainDID))
-	if item.Owner != callerDID {
-		return boltvm.Error(chainDIDNotBelongError(chainDID, caller))
+	if !mr.Registry.HasAdmin(callerDID) && item.Owner != callerDID {
+		return boltvm.Error(notAdminOrOwnerError(chainDID, caller))
 	}
 	_, _, err = mr.Registry.Update(bitxid.DID(chainDID), docAddr, docHash)
 	if err != nil {
@@ -779,8 +780,8 @@ func callerNotMatchError(c1 string, c2 string) string {
 	return "tx.From(" + c1 + ") and callerDID:(" + c2 + ") not the comply"
 }
 
-func chainDIDNotBelongError(chainDID string, caller string) string {
-	return "chainDID (" + chainDID + ") not belongs to caller(" + caller + ")"
+func notAdminOrOwnerError(chainDID string, caller string) string {
+	return "caller(" +  caller + ") is not registry admin and is not owner for chainDID(" + chainDID +  ")."
 }
 
 func docIDNotMatchDIDError(c1 string, c2 string) string {
