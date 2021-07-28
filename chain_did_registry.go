@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/meshplus/bitxhub-core/agency"
 	"github.com/meshplus/bitxhub-core/boltvm"
@@ -382,11 +381,9 @@ func (mm *ChainDIDManager) Register(caller, chainDID string, docAddr string, doc
 
 func (mr *ChainDIDRegistry) constructIBTPs(contractID, function, fromChainDID string, toChainDIDs []string, data []byte) (*pb.IBTPs, error) {
 	content := pb.Content{
-		SrcContractId: contractID,
-		DstContractId: contractID,
-		Func:          function,
-		Args:          [][]byte{[]byte(fromChainDID), []byte(data)},
-		Callback:      "",
+		Func:     function,
+		Args:     [][]byte{[]byte(fromChainDID), []byte(data)},
+		Callback: "",
 	}
 
 	bytes, err := content.Marshal()
@@ -408,12 +405,11 @@ func (mr *ChainDIDRegistry) constructIBTPs(contractID, function, fromChainDID st
 	for _, toChainDID := range toChainDIDs {
 		to := toChainDID //
 		ibtps = append(ibtps, &pb.IBTP{
-			From:      from,
-			To:        to,
-			Type:      pb.IBTP_INTERCHAIN,
-			Timestamp: time.Now().UnixNano(),
-			Proof:     []byte("1"),
-			Payload:   payload,
+			From:    fmt.Sprintf("%s:%s", from, contractID),
+			To:      fmt.Sprintf("%s:%s", to, contractID),
+			Type:    pb.IBTP_INTERCHAIN,
+			Proof:   []byte("1"),
+			Payload: payload,
 		})
 	}
 
@@ -656,11 +652,9 @@ func (mm *ChainDIDManager) synchronizeOut(from string, item *bitxid.ChainItem, s
 		return boltvm.Error(err.Error())
 	}
 	content := pb.Content{
-		SrcContractId: mm.Callee(),
-		DstContractId: mm.Callee(),
-		Func:          "Synchronize",
-		Args:          [][]byte{[]byte(from), itemBytes, sigsBytes},
-		Callback:      "",
+		Func:     "Synchronize",
+		Args:     [][]byte{[]byte(from), itemBytes, sigsBytes},
+		Callback: "",
 	}
 	bytes, err := content.Marshal()
 	if err != nil {
@@ -677,8 +671,8 @@ func (mm *ChainDIDManager) synchronizeOut(from string, item *bitxid.ChainItem, s
 	for _, child := range mr.ChildIDs {
 		toChainID := mr.IDConverter[child]
 		ibtp := pb.IBTP{
-			From:    fromChainID,
-			To:      toChainID, // TODO
+			From:    fmt.Sprintf("%s:%s", fromChainID, mm.Callee()),
+			To:      fmt.Sprintf("%s:%s", toChainID, mm.Callee()), // TODO
 			Payload: payload,
 		}
 		data, err := ibtp.Marshal()
@@ -781,7 +775,7 @@ func callerNotMatchError(c1 string, c2 string) string {
 }
 
 func notAdminOrOwnerError(chainDID string, caller string) string {
-	return "caller(" +  caller + ") is not registry admin and is not owner for chainDID(" + chainDID +  ")."
+	return "caller(" + caller + ") is not registry admin and is not owner for chainDID(" + chainDID + ")."
 }
 
 func docIDNotMatchDIDError(c1 string, c2 string) string {
